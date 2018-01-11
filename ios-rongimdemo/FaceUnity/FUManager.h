@@ -28,9 +28,6 @@
 
 + (FUManager *)shareManager;
 
-/**初始化Faceunity,加载道具*/
-- (void)setUpFaceunity;
-
 /**销毁全部道具*/
 - (void)destoryFaceunityItems;
 

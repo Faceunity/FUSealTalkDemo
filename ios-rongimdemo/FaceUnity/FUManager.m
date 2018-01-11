@@ -36,6 +36,12 @@ static FUManager *shareManager = NULL;
 {
     if (self = [super init]) {
         
+        NSString *path = [[NSBundle mainBundle] pathForResource:@"v3.bundle" ofType:nil];
+        
+        /**这里新增了一个参数shouldCreateContext，设为YES的话，不用在外部设置context操作，我们会在内部创建并持有一个context。
+         还有设置为YES,则需要调用FURenderer.h中的接口，不能再调用funama.h中的接口。*/
+        [[FURenderer shareRenderer] setupWithDataPath:path authPackage:&g_auth_package authSize:sizeof(g_auth_package) shouldCreateContext:YES];
+        
         /*设置默认参数*/
         self.itemsDataSource = @[@"noitem", @"yuguan", @"yazui", @"mask_matianyu", @"lixiaolong", @"EatRabbi", @"Mood"];
         self.selectedItem = self.itemsDataSource[1]; //贴纸道具
@@ -63,12 +69,6 @@ static FUManager *shareManager = NULL;
 
 - (void)setUpFaceunity
 {
-    NSString *path = [[NSBundle mainBundle] pathForResource:@"v3.bundle" ofType:nil];
-    
-    /**这里新增了一个参数shouldCreateContext，设为YES的话，不用在外部设置context操作，我们会在内部创建并持有一个context。
-     还有设置为YES,则需要调用FURenderer.h中的接口，不能再调用funama.h中的接口。*/
-    [[FURenderer shareRenderer] setupWithDataPath:path authPackage:&g_auth_package authSize:sizeof(g_auth_package) shouldCreateContext:YES];
-    
     /**加载普通道具*/
     [self loadItem:self.selectedItem];
     

@@ -6,8 +6,9 @@
 //  Copyright (c) 2014年 RongCloud. All rights reserved.
 //
 
+#import "RCDTableViewController.h"
 #import <UIKit/UIKit.h>
 
-@interface RCDSettingsTableViewController : UITableViewController
+@interface RCDSettingsTableViewController : RCDTableViewController
 
 @end

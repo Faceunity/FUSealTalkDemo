@@ -6,11 +6,11 @@
 //  Copyright © 2016年 RongCloud. All rights reserved.
 //
 
+#import "RCDTableViewController.h"
 #import <RongIMKit/RongIMKit.h>
 #import <UIKit/UIKit.h>
 
-@interface RCDPrivateSettingsTableViewController
-    : UITableViewController <UIActionSheetDelegate>
+@interface RCDPrivateSettingsTableViewController : RCDTableViewController <UIActionSheetDelegate>
 
 @property(nonatomic, strong) NSString *userId;
 

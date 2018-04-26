@@ -25,6 +25,11 @@
 @property(nonatomic, strong) UILabel *remoteNameLabel;
 
 /*!
+ 用户状态的view
+ */
+@property(nonatomic, strong) UIImageView *statusView;
+
+/*!
  全屏的视频View
  */
 @property(nonatomic, strong) UIView *mainVideoView;
@@ -52,8 +57,7 @@
 
  @return 单人音视频ViewController
  */
-- (instancetype)initWithOutgoingCall:(NSString *)targetId
-                           mediaType:(RCCallMediaType)mediaType;
+- (instancetype)initWithOutgoingCall:(NSString *)targetId mediaType:(RCCallMediaType)mediaType;
 
 /*!
  初始化已经接通的音视频ViewController

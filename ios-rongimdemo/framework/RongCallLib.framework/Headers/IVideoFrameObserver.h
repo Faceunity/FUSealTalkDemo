@@ -1,9 +1,9 @@
+//For Agora Only Begin
 #ifndef _ivideoframeobserve_h
 #define _ivideoframeobserve_h
 
+#import "IAgoraMediaEngine.h"
 #import <Foundation/Foundation.h>
-#import <AgoraRtcEngineKit/IAgoraMediaEngine.h>
-
 
 /*
  视频前后处理用这个头文件
@@ -18,13 +18,14 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-int agoraRegisterVideoFrameObserver(agora::media::IVideoFrameObserver *observer,
-    bool useExternalResource = false, bool localPreview = true);
-  
-int agoraRegisterAudioFrameObserver(agora::media::IAudioFrameObserver* observer);
-  
+int agoraRegisterVideoFrameObserver(agora::media::IVideoFrameObserver *observer, bool useExternalResource = false,
+                                    bool localPreview = true);
+
+int agoraRegisterAudioFrameObserver(agora::media::IAudioFrameObserver *observer);
+
 NSString *rcGetUserIdFromAgoraUID(int uid);
 #ifdef __cplusplus
 }
 #endif
 #endif
+//For Agora Only End

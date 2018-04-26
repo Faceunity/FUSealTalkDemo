@@ -6,10 +6,11 @@
 //  Copyright (c) 2014年 RongCloud. All rights reserved.
 //
 
+#import "RCDTableViewController.h"
 #import <UIKit/UIKit.h>
 
-@interface RCDMeTableViewController : UITableViewController
+@interface RCDMeTableViewController : RCDTableViewController
 
-@property (weak, nonatomic) IBOutlet UIImageView *needUpdateImage;
+@property(weak, nonatomic) IBOutlet UIImageView *needUpdateImage;
 
 @end

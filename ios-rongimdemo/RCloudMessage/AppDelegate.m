@@ -339,18 +339,20 @@
     //                               unarchiveObjectWithData:data];
     //    NSLog(@"loadedContents size is %d", loadedContents.count);
     
-    [[RCCallClient sharedRCCallClient] setDelegate:self ];;
+    [[RCCallClient sharedRCCallClient] setDelegate:self ];
     
     return YES;
 }
 
 - (void)didReceiveCall:(RCCallSession *)callSession {
     
+    // 接听通话界面
     RCCallSingleCallViewController *singleCallViewController =
     [[RCCallSingleCallViewController alloc] initWithActiveCall:callSession];
 
     [[RCCall sharedRCCall] presentCallViewController:singleCallViewController];
-
+    
+    // FU 美颜贴纸界面
     [[FUView shareInstance] addToKeyWindow];
 }
 

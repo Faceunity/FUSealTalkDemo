@@ -115,7 +115,7 @@ static FUView *fuView = nil ;
 
 - (void)removeFromKeyWindow {
     [[FUManager shareManager] destoryItems];
-    [self removeFromKeyWindow ];
+    [self removeFromSuperview ];
 }
 
 @end

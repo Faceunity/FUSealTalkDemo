@@ -1,117 +1,62 @@
-# FURCloudMessage 快速接入文档
+# FUSealTalkDemo 快速集成文档
 
-FURCloudMessage 是集成了 Faceunity 面部跟踪和虚拟道具功能 和 融云sealtalk  的 Demo。
+FUSealTalkDemo 是集成了 Faceunity 面部跟踪和虚拟道具功能 和 [SealTalk](https://github.com/sealtalk/sealtalk-ios) 功能的 Demo。
 
-本文是 FaceUnity SDK 快速对融云sealtalk   demo的导读说明，关于 `FaceUnity SDK` 的详细说明，请参看 [FULiveDemo](https://github.com/Faceunity/FULiveDemo/tree/dev)
+本文是 FaceUnity SDK 快速对接融云 SealTalk 的导读说明，关于 `FaceUnity SDK` 的详细说明，请参看 [FULiveDemo](https://github.com/Faceunity/FULiveDemo/tree/dev)
 
+## 主要文件说明
 
+**FUManager** 对 FaceUnity SDK 接口和数据的简单封装。
+
+**FUView** 展示 FaceUnity 效果的 UI。
 
 ## 快速集成方法
 
-### 一、导入 SDK
+### 一、获取视频数据回调
 
-将 FaceUnity 文件夹全部拖入RongCloudCallKit工程中，并且添加依赖库 OpenGLES.framework、Accelerate.framework、CoreMedia.framework、AVFoundation.framework、libstdc++.tbd
+首先在进行视频通话的时候拿到摄像头采集到的视频数据，参照 FUVideoFrameObserverManager 编写视频数据注册类， 在发起视频通话之前和注册监听接听视频的时候调用下面的方法进行注册：
 
-### 二、快速加载道具
+```C
+[FUVideoFrameObserverManager registerVideoFrameObserver];
+```
+本例中此方法在 FUView 类的 addToKeyWindow（将控制美颜贴纸的界面添加到主窗口上）方法中进行。
 
-在 RCCallBaseViewController 的  `初始化函数` 中调用快速加载道具函数，该函数会创建一个美颜道具及指定的贴纸道具。
-
-```c
-    /* faceU */
-    [[FUManager shareManager] loadItems];
+注册之后，在 FUVideoFrameObserverManager 中以下函数中便可得到视频数据，并对其进行处理。
 
 ```
+FUVideoFrameObserver::onCaptureVideoFrame(agora::media::IVideoFrameObserver::VideoFrame& videoFrame)
+```
 
-注：FUManager 的 shareManager 函数中会对 SDK 进行初始化，并设置默认的美颜参数。
+需要说明的是本例中共有三处需要注册视频回调的地方，本文着重描述集成 FaceUnity SDK 的步骤，故将该内容放在文末，您可以点击[快速注册视频回调](#快速注册视频回调)进行查看。
 
-### 三、图片数据处理
-在processVideoFrame添加数据回调代理方法,将数据传由Faceunity处理
+### 二、接入 Faceunity SDK
 
-```c
-- (CMSampleBufferRef)processVideoFrame:(CMSampleBufferRef)sampleBuffer
-{
-    //在此处处理sampleBuffer后同步返回, 当前 [[RCCallClient sharedRCCallClient] setEnableBeauty:YES]; 已经打开
-    //目前返回nil, 则显示的是我们底层默认的美颜滤镜
+将  FaceUnity  文件夹全部拖入工程中，并且添加依赖库 OpenGLES.framework、Accelerate.framework、CoreMedia.framework、AVFoundation.framework、stdc++.tbd
+
+#### 1、快速加载道具
+
+调用 FUManager 里面的 `[[FUManager shareManager] loadItems]` 加载贴纸道具及美颜道具
+
+#### 2、图像处理
+
+在 FUVideoFrameObserverManager 的 `FUVideoFrameObserver::onCaptureVideoFrame(agora::media::IVideoFrameObserver::VideoFrame& videoFrame)` 方法里面进行图像处理。
+
+```C
+bool FUVideoFrameObserver::onCaptureVideoFrame(agora::media::IVideoFrameObserver::VideoFrame& videoFrame)  {
+
+    [[FUManager shareManager] processFrameWithY:videoFrame.yBuffer U:videoFrame.uBuffer V:videoFrame.vBuffer yStride:videoFrame.yStride uStride:videoFrame.uStride vStride:videoFrame.vStride FrameWidth:videoFrame.width FrameHeight:videoFrame.height];
     
-     /* ------ faceU ------ */
-    CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) ;
-    [[FUManager shareManager] renderItemsToPixelBuffer:pixelBuffer flipx:_isFlipx];
-    return sampleBuffer;
+  return true;
 }
 ```
 
+#### 3、道具切换
 
-### 四、切换道具及调整美颜参数
+调用 `[[FUManager shareManager] loadItem: itemName];` 切换道具
 
-本例中通过添加 FUAPIDemoBar 来实现切换道具及调整美颜参数的具体实现，FUAPIDemoBar 是快速集成用的UI，客户可自定义UI。
+#### 4、更新美颜参数
 
-1、在processVideoFrame.m 中添加头文件，并创建 demoBar 属性
-
-```c
-#import <FUAPIDemoBar/FUAPIDemoBar.h>
-
-@property (nonatomic, strong) FUAPIDemoBar *demoBar ;
-```
-
-2、在 demoBar 的 get 方法中对其进行初始化，并遵循代理  FUAPIDemoBarDelegate，实现代理方法 `demoBarDidSelectedItem:` 和 `demoBarBeautyParamChanged`以进一步实现道具的切换及美颜参数的调整。
-
-初始化
-
-```c
-// demobar 初始化
--(FUAPIDemoBar *)demoBar {
-    if (!_demoBar) {
-        _demoBar = [[FUAPIDemoBar alloc] initWithFrame:CGRectMake(0, self.view.frame.size.height - 220, self.view.frame.size.width, 164)];
-        
-        _demoBar.itemsDataSource = [FUManager shareManager].itemsDataSource;
-        _demoBar.selectedItem = [FUManager shareManager].selectedItem ;
-        
-        _demoBar.filtersDataSource = [FUManager shareManager].filtersDataSource ;
-        _demoBar.beautyFiltersDataSource = [FUManager shareManager].beautyFiltersDataSource ;
-        _demoBar.filtersCHName = [FUManager shareManager].filtersCHName ;
-        _demoBar.selectedFilter = [FUManager shareManager].selectedFilter ;
-        [_demoBar setFilterLevel:[FUManager shareManager].selectedFilterLevel forFilter:[FUManager shareManager].selectedFilter] ;
-        
-        _demoBar.skinDetectEnable = [FUManager shareManager].skinDetectEnable;
-        _demoBar.blurShape = [FUManager shareManager].blurShape ;
-        _demoBar.blurLevel = [FUManager shareManager].blurLevel ;
-        _demoBar.whiteLevel = [FUManager shareManager].whiteLevel ;
-        _demoBar.redLevel = [FUManager shareManager].redLevel;
-        _demoBar.eyelightingLevel = [FUManager shareManager].eyelightingLevel ;
-        _demoBar.beautyToothLevel = [FUManager shareManager].beautyToothLevel ;
-        _demoBar.faceShape = [FUManager shareManager].faceShape ;
-        
-        _demoBar.enlargingLevel = [FUManager shareManager].enlargingLevel ;
-        _demoBar.thinningLevel = [FUManager shareManager].thinningLevel ;
-        _demoBar.enlargingLevel_new = [FUManager shareManager].enlargingLevel_new ;
-        _demoBar.thinningLevel_new = [FUManager shareManager].thinningLevel_new ;
-        _demoBar.jewLevel = [FUManager shareManager].jewLevel ;
-        _demoBar.foreheadLevel = [FUManager shareManager].foreheadLevel ;
-        _demoBar.noseLevel = [FUManager shareManager].noseLevel ;
-        _demoBar.mouthLevel = [FUManager shareManager].mouthLevel ;
-        
-        _demoBar.delegate = self;
-    }
-    return _demoBar ;
-}
-```
-
-切换贴纸代理方法
-
-```c
-/**      FUAPIDemoBarDelegate       **/
-
-// 切换贴纸
-- (void)demoBarDidSelectedItem:(NSString *)itemName {
-    
-    [[FUManager shareManager] loadItem:itemName];
-}
-```
-
-更新美颜参数方法
-
-```c
-// 更新美颜参数
+```C
 - (void)demoBarBeautyParamChanged {
     
     [FUManager shareManager].skinDetectEnable = _demoBar.skinDetectEnable;
@@ -130,27 +75,61 @@ FURCloudMessage 是集成了 Faceunity 面部跟踪和虚拟道具功能 和 融
     [FUManager shareManager].foreheadLevel = _demoBar.foreheadLevel;
     [FUManager shareManager].noseLevel = _demoBar.noseLevel;
     [FUManager shareManager].mouthLevel = _demoBar.mouthLevel;
-    
     [FUManager shareManager].selectedFilter = _demoBar.selectedFilter ;
     [FUManager shareManager].selectedFilterLevel = _demoBar.selectedFilterLevel;
 }
 ```
 
-3、在 `viewDidLoad:` 中将 demoBar 添加到页面上
+#### 4、道具销毁
 
-```c
-    /* faceU */
-    [self.view addSubview:self.demoBar];
+调用 `[[FUManager shareManager] destoryItems];` 销毁贴纸及美颜道具。
+
+## 快速注册视频回调
+
+#### 1、在联系人列表点击视频通话按钮直接发起视频通话
+
+在  RCDPersonDetailViewController.m  的 `btnVideoCall:` 方法中调用 `[[FUView shareInstance] addToKeyWindow];` 即可在发起视频通话的时候 将  FUView  的内容添加到主窗口上。
+
+#### 2、在聊天页面发起视频通话
+
+在  RCDChatViewController.m  的 `pluginBoardView: clickedItemWithTag:` 方法中的 `switch`语句中 添加如下代码即可
+
+```C
+case PLUGIN_BOARD_ITEM_VIDEO_VOIP_TAG: {
+    
+    [[RCCall sharedRCCall] startSingleCall:self.targetId mediaType:RCCallMediaVideo];
+    [[FUView shareInstance] addToKeyWindow];
+}
+    break ;
 ```
 
+#### 3、监听视频通话来电
+在  AppDelegate.m  中添加头文件
 
-
-### 五、道具销毁
-
-视频录制结束时需要销毁道具
-
-```c
-[[FUManager shareManager] destoryItems]
+```C
+#import <RongCallLib/RongCallLib.h>
+#import "FUView.h"
 ```
 
-**快速集成完毕，关于 FaceUnity SDK 的更多详细说明，请参看 [FULiveDemo](https://github.com/Faceunity/FULiveDemo/tree/dev)**
+在  `application: didFinishLaunchingWithOptions: `方法中添加监听接听代理 
+
+```C
+[[RCCallClient sharedRCCallClient] setDelegate:self ];
+```
+实现 接听通话 `didReceiveCall:` 代理方法
+
+```C
+- (void)didReceiveCall:(RCCallSession *)callSession {
+    
+    // 接听通话界面
+    RCCallSingleCallViewController *singleCallViewController =
+    [[RCCallSingleCallViewController alloc] initWithActiveCall:callSession];
+
+    [[RCCall sharedRCCall] presentCallViewController:singleCallViewController];
+    
+    // FU 美颜贴纸界面
+    [[FUView shareInstance] addToKeyWindow];
+}
+```
+
+**注：如果在 RongCallKit.framework 中找不到  RCCallSingleCallViewController 类， 请获取 RongCallKit.framework  源码，重新自行打包 或者 直接将  RongCallKit.framework  源码拉进工程替换  RongCallKit.framework .**

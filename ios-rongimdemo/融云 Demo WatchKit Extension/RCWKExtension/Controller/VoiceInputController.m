@@ -12,9 +12,9 @@
 #import <AVFoundation/AVFoundation.h>
 
 @interface VoiceInputController()
-@property (weak, nonatomic) IBOutlet WKInterfaceButton *recordButton;
-@property (weak, nonatomic) IBOutlet WKInterfaceButton *sendButton;
-@property (weak, nonatomic) IBOutlet WKInterfaceImage *recordImage;
+@property (weak, nonatomic) WKInterfaceButton *recordButton;
+@property (weak, nonatomic) WKInterfaceButton *sendButton;
+@property (weak, nonatomic) WKInterfaceImage *recordImage;
 @property (strong, nonatomic)RCConversation *conversation;
 @property (nonatomic)BOOL isRecording;
 @property (strong, nonatomic)AVAudioRecorder *recorder;
@@ -140,12 +140,14 @@
 - (void)updateUI
 {
     if (self.isRecording) {
-        [self.recordButton setTitle:@"停止录音"];
+        [self.recordButton setTitle:RCDLocalizedString(@"stop_record")
+];
         [self.recordImage setImageNamed:@"to_voice_play"];
         [self.recordImage startAnimating];
         [self.sendButton setEnabled:false];
     } else {
-        [self.recordButton setTitle:@"开始录音"];
+        [self.recordButton setTitle:RCDLocalizedString(@"start_record")
+];
         if (self.recordedData && self.duration > 1) {
             [self.sendButton setEnabled:true];
             [self.recordImage setImageNamed:@"to_voice"];

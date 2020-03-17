@@ -10,7 +10,7 @@
 #import "DefaultPortraitView.h"
 
 @interface RCDShareChatListCell ()
-@property(nonatomic, strong) UIImageView *selectImageView;
+@property (nonatomic, strong) UIImageView *selectImageView;
 @end
 
 @implementation RCDShareChatListCell
@@ -48,9 +48,7 @@
         //    NSData *data = [NSData dataWithContentsOfURL:url];
         UIImage *image;
         if (1) { // todo
-            DefaultPortraitView *portraitView = [[DefaultPortraitView alloc] initWithFrame:CGRectMake(0, 0, 100, 100)];
-            [portraitView setColorAndLabel:dataDic[@"targetId"] Nickname:dataDic[@"name"]];
-            image = [portraitView imageFromView];
+            image = [DefaultPortraitView portraitView:dataDic[@"targetId"] name:dataDic[@"name"]];
         }
         self.headerImageView.image = image;
         NSString *str = dataDic[@"name"];

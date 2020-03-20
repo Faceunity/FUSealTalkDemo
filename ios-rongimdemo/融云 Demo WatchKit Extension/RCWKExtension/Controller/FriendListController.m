@@ -14,7 +14,7 @@
 #import "RCAppInfoModel.h"
 
 @interface FriendListController () <RCWKNotificationObserver>
-@property (weak, nonatomic) IBOutlet WKInterfaceTable *tableView;
+@property (weak, nonatomic) WKInterfaceTable *tableView;
 @property (strong, nonatomic)NSArray *contacts;
 @end
 
@@ -53,7 +53,8 @@
     [super awakeWithContext:context];
     
     // Configure interface objects here.
-    [self setTitle:@"好友"];
+    [self setTitle:RCDLocalizedString(@"good_friend")
+];
 }
 
 - (void)willActivate {

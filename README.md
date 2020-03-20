@@ -4,30 +4,53 @@ FUSealTalkDemo 是集成了 Faceunity 面部跟踪和虚拟道具功能 和 [Sea
 
 本文是 FaceUnity SDK 快速对接融云 SealTalk 的导读说明，关于 `FaceUnity SDK` 的详细说明，请参看 [FULiveDemo](https://github.com/Faceunity/FULiveDemo/tree/dev)
 
+
+
+## 运行 SealTalk-iOS
+
+SealTalk 从 2.0.0 版本开始改用 cocoaPods 管理融云 SDK 库和其他第三方库，下载完源码后，按照下面步骤操作
+
+1.终端进入 Podfile 目录
+
+2.更新本地 CocoaPods 的本地仓库，终端执行下面命令
+
+```
+$ pod repo update
+```
+
+3.下载 Podfile 中的依赖库，终端执行下面命令
+
+```
+$ pod install
+```
+
+
+
 ## 主要文件说明
 
 **FUManager** 对 FaceUnity SDK 接口和数据的简单封装。
-
-**FUView** 展示 FaceUnity 效果的 UI。
 
 ## 快速集成方法
 
 ### 一、获取视频数据回调
 
-首先在进行视频通话的时候拿到摄像头采集到的视频数据，参照 FUVideoFrameObserverManager 编写视频数据注册类， 在发起视频通话之前和注册监听接听视频的时候调用下面的方法进行注册：
+首先在进行视频通话的时候拿到摄像头采集到的视频数据，参照 RCCallBaseViewController 中代码：
+
+1.设置外部美颜
 
 ```C
-[FUVideoFrameObserverManager registerVideoFrameObserver];
+[[RCCallClient sharedRCCallClient] setEnableBeauty:YES];
 ```
-本例中此方法在 FUView 类的 addToKeyWindow（将控制美颜贴纸的界面添加到主窗口上）方法中进行。
-
-注册之后，在 FUVideoFrameObserverManager 中以下函数中便可得到视频数据，并对其进行处理。
+2.实现视频回调代理,在回调函数中处理图形
 
 ```
-FUVideoFrameObserver::onCaptureVideoFrame(agora::media::IVideoFrameObserver::VideoFrame& videoFrame)
+-(CMSampleBufferRef)processVideoFrame:(CMSampleBufferRef)sampleBuffer{
+    CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+    [[FUManager shareManager] renderItemsToPixelBuffer:pixelBuffer];
+    
+    return sampleBuffer;
+}
 ```
-
-需要说明的是本例中共有三处需要注册视频回调的地方，本文着重描述集成 FaceUnity SDK 的步骤，故将该内容放在文末，您可以点击[快速注册视频回调](#快速注册视频回调)进行查看。
 
 ### 二、接入 Faceunity SDK
 
@@ -39,15 +62,12 @@ FUVideoFrameObserver::onCaptureVideoFrame(agora::media::IVideoFrameObserver::Vid
 
 #### 2、图像处理
 
-在 FUVideoFrameObserverManager 的 `FUVideoFrameObserver::onCaptureVideoFrame(agora::media::IVideoFrameObserver::VideoFrame& videoFrame)` 方法里面进行图像处理。
+在 视频回调函数中__processVideoFrame__中
 
 ```C
-bool FUVideoFrameObserver::onCaptureVideoFrame(agora::media::IVideoFrameObserver::VideoFrame& videoFrame)  {
-
-    [[FUManager shareManager] processFrameWithY:videoFrame.yBuffer U:videoFrame.uBuffer V:videoFrame.vBuffer yStride:videoFrame.yStride uStride:videoFrame.uStride vStride:videoFrame.vStride FrameWidth:videoFrame.width FrameHeight:videoFrame.height];
+  CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+  [[FUManager shareManager] renderItemsToPixelBuffer:pixelBuffer];
     
-  return true;
-}
 ```
 
 #### 3、道具切换
@@ -84,52 +104,6 @@ bool FUVideoFrameObserver::onCaptureVideoFrame(agora::media::IVideoFrameObserver
 
 调用 `[[FUManager shareManager] destoryItems];` 销毁贴纸及美颜道具。
 
-## 快速注册视频回调
-
-#### 1、在联系人列表点击视频通话按钮直接发起视频通话
-
-在  RCDPersonDetailViewController.m  的 `btnVideoCall:` 方法中调用 `[[FUView shareInstance] addToKeyWindow];` 即可在发起视频通话的时候 将  FUView  的内容添加到主窗口上。
-
-#### 2、在聊天页面发起视频通话
-
-在  RCDChatViewController.m  的 `pluginBoardView: clickedItemWithTag:` 方法中的 `switch`语句中 添加如下代码即可
-
-```C
-case PLUGIN_BOARD_ITEM_VIDEO_VOIP_TAG: {
-    
-    [[RCCall sharedRCCall] startSingleCall:self.targetId mediaType:RCCallMediaVideo];
-    [[FUView shareInstance] addToKeyWindow];
-}
-    break ;
-```
-
-#### 3、监听视频通话来电
-在  AppDelegate.m  中添加头文件
-
-```C
-#import <RongCallLib/RongCallLib.h>
-#import "FUView.h"
-```
-
-在  `application: didFinishLaunchingWithOptions: `方法中添加监听接听代理 
-
-```C
-[[RCCallClient sharedRCCallClient] setDelegate:self ];
-```
-实现 接听通话 `didReceiveCall:` 代理方法
-
-```C
-- (void)didReceiveCall:(RCCallSession *)callSession {
-    
-    // 接听通话界面
-    RCCallSingleCallViewController *singleCallViewController =
-    [[RCCallSingleCallViewController alloc] initWithActiveCall:callSession];
-
-    [[RCCall sharedRCCall] presentCallViewController:singleCallViewController];
-    
-    // FU 美颜贴纸界面
-    [[FUView shareInstance] addToKeyWindow];
-}
-```
-
 **注：如果在 RongCallKit.framework 中找不到  RCCallSingleCallViewController 类， 请获取 RongCallKit.framework  源码，重新自行打包 或者 直接将  RongCallKit.framework  源码拉进工程替换  RongCallKit.framework .**
+
+demo使用RongCallKit 源码方式集成

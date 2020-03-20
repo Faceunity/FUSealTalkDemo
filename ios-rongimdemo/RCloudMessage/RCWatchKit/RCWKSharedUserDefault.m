@@ -6,11 +6,8 @@
 //  Copyright (c) 2015年 RongCloud. All rights reserved.
 //
 #import "RCWKSharedUserDefault.h"
-#import "RCWKAPPCommonDefine.h"
 #import "RCWKAppInfoProvider.h"
 #import <UIKit/UIKit.h>
-
-#import <RongCallKit/RongCallKit.h>
 
 @implementation RCWKSharedUserDefault
 + (void)setSharedDefaultObject:(id)object forKey:(NSString *)key {

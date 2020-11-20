@@ -1,109 +1,124 @@
-# FUSealTalkDemo 快速集成文档
+# FURCloudMessage 快速接入文档
 
-FUSealTalkDemo 是集成了 Faceunity 面部跟踪和虚拟道具功能 和 [SealTalk](https://github.com/sealtalk/sealtalk-ios) 功能的 Demo。
+FURCloudMessage 是集成了 Faceunity 面部跟踪和虚拟道具功能 和 融云sealtalk  的 Demo。
 
-本文是 FaceUnity SDK 快速对接融云 SealTalk 的导读说明，关于 `FaceUnity SDK` 的详细说明，请参看 [FULiveDemo](https://github.com/Faceunity/FULiveDemo/tree/dev)
+本文是 FaceUnity SDK 快速对融云 [sealtalk] (https://github.com/sealtalk/sealtalk-ios) demo的导读说明，关于 `FaceUnity SDK` 的详细说明，请参看 [FULiveDemo](https://github.com/Faceunity/FULiveDemo/tree/dev)
 
-
-
-## 运行 SealTalk-iOS
-
-SealTalk 从 2.0.0 版本开始改用 cocoaPods 管理融云 SDK 库和其他第三方库，下载完源码后，按照下面步骤操作
-
-1.终端进入 Podfile 目录
-
-2.更新本地 CocoaPods 的本地仓库，终端执行下面命令
-
-```
-$ pod repo update
-```
-
-3.下载 Podfile 中的依赖库，终端执行下面命令
-
-```
-$ pod install
-```
-
-
-
-## 主要文件说明
-
-**FUManager** 对 FaceUnity SDK 接口和数据的简单封装。
 
 ## 快速集成方法
 
-### 一、获取视频数据回调
+### 一、导入 SDK
+将  FaceUnity  文件夹全部拖入工程中，NamaSDK所需依赖库为 `OpenGLES.framework`、`Accelerate.framework`、`CoreMedia.framework`、`AVFoundation.framework`、`libc++.tbd`、`CoreML.framework`
 
-首先在进行视频通话的时候拿到摄像头采集到的视频数据，参照 RCCallBaseViewController 中代码：
+- 备注: 上述NamaSDK 依赖库使用 Pods 管理 会自动添加依赖,运行在iOS11以下系统时,需要手动添加`CoreML.framework`,并在**TARGETS -> Build Phases-> Link Binary With Libraries**将`CoreML.framework`手动修改为可选**Optional**
 
-1.设置外部美颜
+### FaceUnity 模块简介
+```C
+-FUManager              //nama 业务类
+-FUCamera               //视频采集类(示例程序未用到)   
+-authpack.h             //权限文件 
++FUAPIDemoBar     //美颜工具条,可自定义
++items       //贴纸和美妆资源 xx.bundel文件
+      
+```
+
+### 二、加入展示 FaceUnity SDK 美颜贴纸效果的  UI
+
+1、在 RCCallBaseViewController.m  中添加头文件，并创建页面属性
 
 ```C
-[[RCCallClient sharedRCCallClient] setEnableBeauty:YES];
-```
-2.实现视频回调代理,在回调函数中处理图形
+/**faceU */
+#import "FUManager.h"
+#import "FUAPIDemoBar.h"
+
+@property (nonatomic, strong) FUAPIDemoBar *demoBar;
 
 ```
--(CMSampleBufferRef)processVideoFrame:(CMSampleBufferRef)sampleBuffer{
-    CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+
+2、初始化 UI，并遵循代理  FUAPIDemoBarDelegate ，实现代理方法 `bottomDidChange:` 切换贴纸 和 `filterValueChange` 更新美颜参数。
+
+```C
+/// 初始化demoBar
+-(FUAPIDemoBar *)demoBar {
+    if (!_demoBar) {
+        
+        _demoBar = [[FUAPIDemoBar alloc] initWithFrame:CGRectMake(0, self.view.frame.size.height - 164 - 194, self.view.frame.size.width, 194)];
+        
+        _demoBar.mDelegate = self;
+    }
+    return _demoBar ;
+}
+
+```
+
+#### 切换贴纸
+
+```C
+// 切换贴纸
+-(void)bottomDidChange:(int)index{
+    if (index < 3) {
+        [[FUManager shareManager] setRenderType:FUDataTypeBeautify];
+    }
+    if (index == 3) {
+        [[FUManager shareManager] setRenderType:FUDataTypeStrick];
+    }
+    
+    if (index == 4) {
+        [[FUManager shareManager] setRenderType:FUDataTypeMakeup];
+    }
+    if (index == 5) {
+        [[FUManager shareManager] setRenderType:FUDataTypebody];
+    }
+}
+
+```
+
+#### 更新美颜参数
+
+```C
+// 更新美颜参数    
+- (void)filterValueChange:(FUBeautyParam *)param{
+    [[FUManager shareManager] filterValueChange:param];
+}
+```
+
+### 三、在 `viewDidLoad:`  初始化SDK,并将`demoBar`添加到页面上
+
+```C
+/* faceU */
+[[FUManager shareManager] loadFilter];
+[FUManager shareManager].isRender = YES;
+[FUManager shareManager].flipx = NO;
+[FUManager shareManager].trackFlipx = NO;
+[[FUManager shareManager] setAsyncTrackFaceEnable:NO];
+[self.view addSubview:self.demoBar];
+
+```
+
+
+### 四、图片数据处理
+在processVideoFrame添加数据回调代理方法,将数据传由Faceunity处理
+
+```C
+- (CMSampleBufferRef)processVideoFrame:(CMSampleBufferRef)sampleBuffer{
+    
+    //在此处处理sampleBuffer后同步返回, 当前 [[RCCallClient sharedRCCallClient] setEnableBeauty:YES]; 已经打开
+    //目前返回nil, 则显示的是我们底层默认的美颜滤镜
+    
+    /* ------ faceU ------ */
+    
+    CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) ;
     [[FUManager shareManager] renderItemsToPixelBuffer:pixelBuffer];
     
     return sampleBuffer;
 }
 ```
 
-### 二、接入 Faceunity SDK
 
-将  FaceUnity  文件夹全部拖入工程中，并且添加依赖库 OpenGLES.framework、Accelerate.framework、CoreMedia.framework、AVFoundation.framework、stdc++.tbd
+### 五、销毁道具和切换摄像头
 
-#### 1、快速加载道具
+1 视图控制器生命周期结束时 `[[FUManager shareManager] destoryItems];`销毁道具。
 
-调用 FUManager 里面的 `[[FUManager shareManager] loadItems]` 加载贴纸道具及美颜道具
+2 切换摄像头需要调用 `[[FUManager shareManager] onCameraChange];`切换摄像头
 
-#### 2、图像处理
-
-在 视频回调函数中__processVideoFrame__中
-
-```C
-  CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
-  [[FUManager shareManager] renderItemsToPixelBuffer:pixelBuffer];
-    
-```
-
-#### 3、道具切换
-
-调用 `[[FUManager shareManager] loadItem: itemName];` 切换道具
-
-#### 4、更新美颜参数
-
-```C
-- (void)demoBarBeautyParamChanged {
-    
-    [FUManager shareManager].skinDetectEnable = _demoBar.skinDetectEnable;
-    [FUManager shareManager].blurShape = _demoBar.blurShape;
-    [FUManager shareManager].blurLevel = _demoBar.blurLevel ;
-    [FUManager shareManager].whiteLevel = _demoBar.whiteLevel;
-    [FUManager shareManager].redLevel = _demoBar.redLevel;
-    [FUManager shareManager].eyelightingLevel = _demoBar.eyelightingLevel;
-    [FUManager shareManager].beautyToothLevel = _demoBar.beautyToothLevel;
-    [FUManager shareManager].faceShape = _demoBar.faceShape;
-    [FUManager shareManager].enlargingLevel = _demoBar.enlargingLevel;
-    [FUManager shareManager].thinningLevel = _demoBar.thinningLevel;
-    [FUManager shareManager].enlargingLevel_new = _demoBar.enlargingLevel_new;
-    [FUManager shareManager].thinningLevel_new = _demoBar.thinningLevel_new;
-    [FUManager shareManager].jewLevel = _demoBar.jewLevel;
-    [FUManager shareManager].foreheadLevel = _demoBar.foreheadLevel;
-    [FUManager shareManager].noseLevel = _demoBar.noseLevel;
-    [FUManager shareManager].mouthLevel = _demoBar.mouthLevel;
-    [FUManager shareManager].selectedFilter = _demoBar.selectedFilter ;
-    [FUManager shareManager].selectedFilterLevel = _demoBar.selectedFilterLevel;
-}
-```
-
-#### 4、道具销毁
-
-调用 `[[FUManager shareManager] destoryItems];` 销毁贴纸及美颜道具。
-
-**注：如果在 RongCallKit.framework 中找不到  RCCallSingleCallViewController 类， 请获取 RongCallKit.framework  源码，重新自行打包 或者 直接将  RongCallKit.framework  源码拉进工程替换  RongCallKit.framework .**
-
-demo使用RongCallKit 源码方式集成
+### 关于 FaceUnity SDK 的更多详细说明，请参看 [FULiveDemo](https://github.com/Faceunity/FULiveDemo/tree/dev)

@@ -1,0 +1,7 @@
+Pods
+Podfile.lock
+bin
+Build
+DerivedData
+RCloudMessage.xcodeproj/xcuserdata
+RCloudMessage.xcworkspace/xcuserdata

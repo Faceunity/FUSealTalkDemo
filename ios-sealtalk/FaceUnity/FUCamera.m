@@ -9,7 +9,7 @@
 #import "FUCamera.h"
 #import <UIKit/UIKit.h>
 #import "FURecordEncoder.h"
-//#import <SVProgressHUD/SVProgressHUD.h>
+#import <SVProgressHUD/SVProgressHUD.h>
 
 
 
@@ -108,7 +108,7 @@ typedef void(^FUCameraRecordVidepCompleted)(NSString *videoPath);
         
         AVCaptureDeviceInput *deviceInput = self.isFrontCamera ? self.frontCameraInput:self.backCameraInput;
         
-        [_captureSession beginConfiguration]; // the session to which the receiver's AVCaptureDeviceInput is added.
+        [_captureSession beginConfiguration]; // the session to which the receiver's  AVCaptureDeviceInput is added.
         if ([_captureSession canAddInput: deviceInput]) {
             [_captureSession addInput: deviceInput];
         }
@@ -121,7 +121,7 @@ typedef void(^FUCameraRecordVidepCompleted)(NSString *videoPath);
             [_captureSession addInput:self.audioMicInput];
         }
         
-        [self addAudio];
+        //[self addAudio];
         
         [self.videoConnection setVideoOrientation:AVCaptureVideoOrientationPortrait];
         if (self.videoConnection.supportsVideoMirroring && self.isFrontCamera) {
@@ -686,19 +686,19 @@ typedef void(^FUCameraRecordVidepCompleted)(NSString *videoPath);
 - (void)image: (UIImage *) image didFinishSavingWithError: (NSError *) error contextInfo: (void *) contextInfo
 {
     if(error != NULL){
-//        [SVProgressHUD showErrorWithStatus:NSLocalizedString(@"保存图片失败", nil)];
+        [SVProgressHUD showErrorWithStatus:NSLocalizedString(@"保存图片失败", nil)];
     }else{
-//        [SVProgressHUD showSuccessWithStatus:NSLocalizedString(@"图片已保存到相册", nil)];
+        [SVProgressHUD showSuccessWithStatus:NSLocalizedString(@"图片已保存到相册", nil)];
     }
 }
 
 - (void)video:(NSString *)videoPath didFinishSavingWithError:(NSError *)error contextInfo:(void *)contextInfo
 {
     if(error != NULL){
-//        [SVProgressHUD showErrorWithStatus:NSLocalizedString(@"保存视频失败", nil)];
+        [SVProgressHUD showErrorWithStatus:NSLocalizedString(@"保存视频失败", nil)];
         
     }else{
-//        [SVProgressHUD showSuccessWithStatus:NSLocalizedString(@"视频已保存到相册", nil)];
+        [SVProgressHUD showSuccessWithStatus:NSLocalizedString(@"视频已保存到相册", nil)];
     }
 }
 

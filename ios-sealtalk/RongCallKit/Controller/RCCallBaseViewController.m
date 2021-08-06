@@ -23,14 +23,13 @@
 /**faceU */
 #import "FUManager.h"
 #import "FUAPIDemoBar.h"
-
-
 #import "FUTestRecorder.h"
+#import "UIViewController+FaceUnityUIExtension.h"
 
 
 NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessionCreation Notification";
 
-@interface RCCallBaseViewController ()<FUAPIDemoBarDelegate>
+@interface RCCallBaseViewController ()
 {
     UIImage *signalImage0, *signalImage1, *signalImage2, *signalImage3, *signalImage4, *signalImage5;
     dispatch_semaphore_t sem;
@@ -48,9 +47,6 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 @property(nonatomic, strong) UIAlertController *alertController;
 @property(nonatomic, assign) BOOL backCamera;
 @property(nonatomic, weak) NSTimer *vibrateTimer;
-
-/* faceU */
-@property(nonatomic,strong)FUAPIDemoBar *demoBar;
 
 
 
@@ -141,6 +137,8 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
     [self stopPlayRing];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
+    // 美颜参数保存
+    [[FUManager shareManager] cacheFaceunityData];
     [[FUManager shareManager] destoryItems];
     
 }
@@ -254,84 +252,30 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
     [self.view addSubview:self.blurView];
     self.blurView.hidden = YES;
     
-    
-    [[FUTestRecorder shareRecorder] setupRecord];
-    
-    
     /* faceU */
-    [[FUManager shareManager] loadFilter];
-    [FUManager shareManager].isRender = YES;
-    [FUManager shareManager].flipx = NO;
-    [FUManager shareManager].trackFlipx = NO;
-    [self.view addSubview:self.demoBar];
-    
+    [self setupFaceUnity];
     
 }
 
-#pragma  mark ----  faceU start  -----
-
-/// 初始化demoBar
--(FUAPIDemoBar *)demoBar {
-    if (!_demoBar) {
-        
-        _demoBar = [[FUAPIDemoBar alloc] initWithFrame:CGRectMake(0, self.view.frame.size.height - 164 - 194, self.view.frame.size.width, 194)];
-        
-        _demoBar.mDelegate = self;
-    }
-    return _demoBar ;
-}
-
-/// 销毁道具
-- (void)destoryFaceunityItems
-{
-
-    [[FUManager shareManager] destoryItems];
-    
-}
-
-#pragma -FUAPIDemoBarDelegate
--(void)filterValueChange:(FUBeautyParam *)param{
-    [[FUManager shareManager] filterValueChange:param];
-}
-
--(void)switchRenderState:(BOOL)state{
-    [FUManager shareManager].isRender = state;
-}
-
--(void)bottomDidChange:(int)index{
-    if (index < 3) {
-        [[FUManager shareManager] setRenderType:FUDataTypeBeautify];
-    }
-    if (index == 3) {
-        [[FUManager shareManager] setRenderType:FUDataTypeStrick];
-    }
-    
-    if (index == 4) {
-        [[FUManager shareManager] setRenderType:FUDataTypeMakeup];
-    }
-    if (index == 5) {
-        
-        [[FUManager shareManager] setRenderType:FUDataTypebody];
-    }
-}
+#pragma  mark ----  faceU start  ----
 
 - (CMSampleBufferRef)processVideoFrame:(CMSampleBufferRef)sampleBuffer{
     
     //在此处处理sampleBuffer后同步返回, 当前 [[RCCallClient sharedRCCallClient] setEnableBeauty:YES]; 已经打开
     //目前返回nil, 则显示的是我们底层默认的美颜滤镜
     
+    CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
     /* ------ faceU ------ */
-    
     [[FUTestRecorder shareRecorder] processFrameWithLog];
-    
-    CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) ;
-    [[FUManager shareManager] renderItemsToPixelBuffer:pixelBuffer];
+    CVPixelBufferRef resultBuffer = [[FUManager shareManager] renderItemsToPixelBuffer:pixelBuffer];
+    if (resultBuffer) { // 人脸人体检测提示语,正式环境请勿添加
+        
+        [self checkAI];
+    }
+         
     
     return sampleBuffer;
 }
-
-
-
 
 
 #pragma  mark ----  faceU End  -----
@@ -410,15 +354,16 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
 - (void)minimizeButtonClicked {
     [self didTapMinimizeButton];
-
-    Class selfClass = [self class];
-    [RCCallFloatingBoard
-        startCallFloatingBoard:self.callSession
-              withTouchedBlock:^(RCCallSession *callSession) {
-                  [[RCCall sharedRCCall] presentCallViewController:[[selfClass alloc] initWithActiveCall:callSession]];
-              }];
-    [self stopActiveTimer];
-    [[RCCall sharedRCCall] dismissCallViewController:self];
+    
+//#warning minimizeButton 最小化Button 会销毁当前控制器,对端美颜失效,再次点击会重新创建新的控制器
+//    Class selfClass = [self class];
+//    [RCCallFloatingBoard
+//        startCallFloatingBoard:self.callSession
+//              withTouchedBlock:^(RCCallSession *callSession) {
+//                  [[RCCall sharedRCCall] presentCallViewController:[[selfClass alloc] initWithActiveCall:callSession]];
+//              }];
+//    [self stopActiveTimer];
+//    [[RCCall sharedRCCall] dismissCallViewController:self];
 }
 
 - (UIButton *)inviteUserButton {
@@ -1521,6 +1466,10 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
  通话已结束
  */
 - (void)callDidDisconnect {
+    
+    // 通话结束,销毁FU资源
+    [[FUManager shareManager] destoryItems];
+    
     [self callWillDisconnect];
     [[RCCXCall sharedInstance] endCXCall];
     [RCCallKitUtility clearScreenForceOnStatus];

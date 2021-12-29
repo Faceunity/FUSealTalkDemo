@@ -30,12 +30,17 @@ FURCloudMessage 是集成了 Faceunity 面部跟踪和虚拟道具功能 和 融
 1、在 RCCallBaseViewController.m  中添加头文件
 ```objc
 #import "FUManager.h"
-#import "UIViewController+FaceUnityUIExtension.h"
+#import "FUDemoManager.h"
 ```
 
-2、在 `viewDidLoad` 方法中初始化FU `setupFaceUnity` 会初始化FUSDK,和添加美颜工具条,具体实现可查看 `UIViewController+FaceUnityUIExtension.m`
+2、在 `viewDidLoad` 方法中初始化FU `setupFaceUnityDemoInController` 会初始化FUSDK,和添加美颜工具条,具体实现可查看 `UIViewController+FaceUnityUIExtension.m`
 ```objc
-[self setupFaceUnity];
+    // FaceUnity UI
+    CGFloat safeAreaBottom = 0;
+    if (@available(iOS 11.0, *)) {
+        safeAreaBottom = [UIApplication sharedApplication].delegate.window.safeAreaInsets.bottom;
+    }
+    [FUDemoManager setupFaceUnityDemoInController:self originY:CGRectGetHeight(self.view.frame) - FUBottomBarHeight - safeAreaBottom - 120];
 ```
 
 ### 三、图片数据处理

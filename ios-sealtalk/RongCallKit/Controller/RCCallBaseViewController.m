@@ -22,9 +22,7 @@
 
 /**faceU */
 #import "FUManager.h"
-#import "FUAPIDemoBar.h"
-#import "FUTestRecorder.h"
-#import "UIViewController+FaceUnityUIExtension.h"
+#import "FUDemoManager.h"
 
 
 NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessionCreation Notification";
@@ -136,10 +134,6 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 - (void)dealloc {
     [self stopPlayRing];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
-    
-    // 美颜参数保存
-    [[FUManager shareManager] cacheFaceunityData];
-    [[FUManager shareManager] destoryItems];
     
 }
 
@@ -253,7 +247,12 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
     self.blurView.hidden = YES;
     
     /* faceU */
-    [self setupFaceUnity];
+    // FaceUnity UI
+    CGFloat safeAreaBottom = 0;
+    if (@available(iOS 11.0, *)) {
+        safeAreaBottom = [UIApplication sharedApplication].delegate.window.safeAreaInsets.bottom;
+    }
+    [FUDemoManager setupFaceUnityDemoInController:self originY:CGRectGetHeight(self.view.frame) - FUBottomBarHeight - safeAreaBottom - 120];
     
 }
 
@@ -266,14 +265,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
     
     CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
     /* ------ faceU ------ */
-    [[FUTestRecorder shareRecorder] processFrameWithLog];
-    CVPixelBufferRef resultBuffer = [[FUManager shareManager] renderItemsToPixelBuffer:pixelBuffer];
-    if (resultBuffer) { // 人脸人体检测提示语,正式环境请勿添加
-        
-        [self checkAI];
-    }
-         
-    
+    [[FUManager shareManager] renderItemsToPixelBuffer:pixelBuffer];
     return sampleBuffer;
 }
 
@@ -787,8 +779,6 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
         
         [[FUManager shareManager] onCameraChange];
         [FUManager shareManager].flipx = ![FUManager shareManager].flipx;
-        [FUManager shareManager].trackFlipx = ![FUManager shareManager].trackFlipx;
-        
     }
     //[_cameraSwitchButton setSelected:_backCamera];
 }

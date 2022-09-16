@@ -15,13 +15,8 @@
 #import "RCDUtilities.h"
 #import "RCDFriendRemarksViewController.h"
 #import "RCDChatViewController.h"
-
-#ifdef USE_SignalingKit
-#import <RongSignalingKit/RCSCallKit.h>
-#else
+//#import <RongCallKit/RongCallKit.h>
 #import "RongCallKit.h"
-#endif
-
 #import "UIView+MBProgressHUD.h"
 #import "RCDUserInfoManager.h"
 #import "RCDPersonDetailCell.h"
@@ -94,10 +89,22 @@ typedef NS_ENUM(NSInteger, RCDFriendDescriptionType) {
     [super viewDidLoad];
 
     [self setupSubviews];
+    [self configureNavigationBar];
     [self getUserInfoData];
 }
 
-#pragma mark - Private Method
+#pragma mark - Private Methods
+
+- (void)configureNavigationBar {
+    self.navigationItem.leftBarButtonItems = [RCKitUtility getLeftNavigationItems:RCResourceImage(@"navigator_btn_back") title:nil target:self action:@selector(leftBarButtonItemPressed:)];
+}
+
+- (void)leftBarButtonItemPressed:(id)sender {
+    if (self.navigationController && [self.navigationController.viewControllers.lastObject isEqual:self]) {
+        [self.navigationController popViewControllerAnimated:YES];
+    }
+}
+
 - (void)setupSubviews {
     [self.view addSubview:self.scrollView];
     [self.scrollView addSubview:self.contentView];
@@ -267,12 +274,7 @@ typedef NS_ENUM(NSInteger, RCDFriendDescriptionType) {
 }
 
 - (void)showAlertWithMessage:(NSString *)message {
-    UIAlertController *alertController =
-        [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
-    [alertController addAction:[UIAlertAction actionWithTitle:RCDLocalizedString(@"confirm")
-                                                        style:UIAlertActionStyleDefault
-                                                      handler:nil]];
-    [self presentViewController:alertController animated:YES completion:nil];
+    [RCAlertView showAlertController:nil message:message cancelTitle:RCDLocalizedString(@"confirm") inViewController:self];
 }
 
 - (void)showAlertWithMessage:(NSString *)message
@@ -386,13 +388,9 @@ typedef NS_ENUM(NSInteger, RCDFriendDescriptionType) {
     chatVC.targetId = self.userId;
     NSString *title;
     if ([self isCurrentUser]) {
-        title = [RCIM sharedRCIM].currentUserInfo.name;
+        title = [RCKitUtility getDisplayName:[RCIM sharedRCIM].currentUserInfo];
     } else {
-        if (self.userInfo.displayName.length > 0) {
-            title = self.userInfo.displayName;
-        } else {
-            title = self.userInfo.name;
-        }
+        title = [RCKitUtility getDisplayName:self.userInfo];
     }
     chatVC.title = title;
     chatVC.needPopToRootView = YES;
@@ -402,55 +400,40 @@ typedef NS_ENUM(NSInteger, RCDFriendDescriptionType) {
 
 - (void)audioCall:(UIButton *)sender {
 //语音通话
-#if USE_SignalingKit
-    [[RCSCall sharedRCSCall] startSingleCall:self.userInfo.userId mediaType:RCSCallMediaAudio];
-#else
     [[RCCall sharedRCCall] startSingleCall:self.userInfo.userId mediaType:RCCallMediaAudio];
-#endif
 }
 
 - (void)videoCall:(UIButton *)sender {
 //视频通话
-#if USE_SignalingKit
-    [[RCSCall sharedRCSCall] startSingleCall:self.userInfo.userId mediaType:RCSCallMediaVideo];
-#else
     [[RCCall sharedRCCall] startSingleCall:self.userInfo.userId mediaType:RCCallMediaVideo];
-#endif
 }
 
 - (void)presentActionSheet {
-    UIAlertAction *cancelAction =
-        [UIAlertAction actionWithTitle:RCDLocalizedString(@"cancel") style:UIAlertActionStyleCancel handler:nil];
-    UIAlertAction *callAction = [UIAlertAction
-        actionWithTitle:RCDLocalizedString(@"Call")
-                  style:UIAlertActionStyleDefault
-                handler:^(UIAlertAction *_Nonnull action) {
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                        if (self.friendDescription.phone) {
-                            NSURL *phoneUrl = [NSURL
-                                URLWithString:[NSString stringWithFormat:@"tel://%@", self.friendDescription.phone]];
-                            if (IOS_FSystenVersion > 10) {
-                                [[UIApplication sharedApplication] openURL:phoneUrl options:@{} completionHandler:nil];
-                            } else {
-                                [[UIApplication sharedApplication] openURL:phoneUrl];
-                            }
-                        }
-                    });
-                }];
-    UIAlertAction *copyAction = [UIAlertAction actionWithTitle:RCDLocalizedString(@"CopyNumber")
-                                                         style:UIAlertActionStyleDefault
-                                                       handler:^(UIAlertAction *_Nonnull action) {
-                                                           if (self.friendDescription.phone) {
-                                                               UIPasteboard *pastboard =
-                                                                   [UIPasteboard generalPasteboard];
-                                                               [pastboard setString:self.friendDescription.phone];
-                                                           }
-                                                       }];
-    [RCKitUtility showAlertController:nil
-                              message:nil
-                       preferredStyle:UIAlertControllerStyleActionSheet
-                              actions:@[ cancelAction, callAction, copyAction ]
-                     inViewController:self];
+    [RCActionSheetView showActionSheetView:nil cellArray:@[RCDLocalizedString(@"Call"), RCDLocalizedString(@"CopyNumber")] cancelTitle:RCDLocalizedString(@"cancel") selectedBlock:^(NSInteger index) {
+        [self alertActionDidClickIndex:index];
+    } cancelBlock:^{
+            
+    }];
+}
+
+- (void)alertActionDidClickIndex:(NSInteger)index{
+    if (index == 0) {
+        if (self.friendDescription.phone) {
+            NSURL *phoneUrl = [NSURL
+                URLWithString:[NSString stringWithFormat:@"tel://%@", self.friendDescription.phone]];
+            if (IOS_FSystenVersion > 10) {
+                [[UIApplication sharedApplication] openURL:phoneUrl options:@{} completionHandler:nil];
+            } else {
+                [[UIApplication sharedApplication] openURL:phoneUrl];
+            }
+        }
+    }else{
+        if (self.friendDescription.phone) {
+            UIPasteboard *pastboard =
+                [UIPasteboard generalPasteboard];
+            [pastboard setString:self.friendDescription.phone];
+        }
+    }
 }
 
 #pragma mark - UITableViewDelegate && UITableViewDataSource
@@ -573,9 +556,9 @@ typedef NS_ENUM(NSInteger, RCDFriendDescriptionType) {
                             rightTitle:RCDLocalizedString(@"confirm")];
         } else {
             self.operation = RCDPersonOperationDelete;
-            [self showAlertWithMessage:[NSString stringWithFormat:RCDLocalizedString(@"DeleteFriendHindMessage"),
-                                                                  self.userInfo.name]
-                         highlightText:self.userInfo.name
+            NSString *displayName = [RCKitUtility getDisplayName:self.userInfo];
+            [self showAlertWithMessage:[NSString stringWithFormat:RCDLocalizedString(@"DeleteFriendHindMessage"), displayName]
+                         highlightText:displayName
                              leftTitle:RCDLocalizedString(@"cancel")
                             rightTitle:RCDLocalizedString(@"Delete")];
         }
@@ -612,7 +595,6 @@ typedef NS_ENUM(NSInteger, RCDFriendDescriptionType) {
         _tableView.scrollEnabled = NO;
         _tableView.tableFooterView = [UIView new];
         _tableView.backgroundColor = RCDDYCOLOR(0xf0f0f6, 0x000000);
-        _tableView.separatorColor = RCDDYCOLOR(0xdfdfdf, 0x1a1a1a);
         _tableView.tableFooterView = [UIView new];
     }
     return _tableView;

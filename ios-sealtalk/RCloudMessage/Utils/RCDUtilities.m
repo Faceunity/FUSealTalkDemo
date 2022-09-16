@@ -65,6 +65,23 @@
     }
 }
 
++ (NSString *)defaultUltraChannelPortrait:(RCDChannel *)channel groupId:(NSString *)groupId{
+    NSString *filePath = [[self class] getIconCachePath:[NSString stringWithFormat:@"ultragroup%@%@.png", groupId,channel.channelId]];
+    if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
+        NSURL *portraitPath = [NSURL fileURLWithPath:filePath];
+        return [portraitPath absoluteString];
+    } else {
+        UIImage *portrait = [DefaultPortraitView portraitView:channel.channelId name:channel.channelName];
+        BOOL result = [UIImagePNGRepresentation(portrait) writeToFile:filePath atomically:YES];
+        if (result) {
+            NSURL *portraitPath = [NSURL fileURLWithPath:filePath];
+            return [portraitPath absoluteString];
+        } else {
+            return nil;
+        }
+    }
+}
+
 + (NSString *)getIconCachePath:(NSString *)fileName {
     NSString *cachPath =
         [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) objectAtIndex:0];
@@ -171,8 +188,8 @@
             NSString *firstLetter;
             if ([user isMemberOfClass:[RCDFriendInfo class]]) {
                 RCDFriendInfo *userInfo = (RCDFriendInfo *)user;
-                if (userInfo.displayName.length > 0 && ![userInfo.displayName isEqualToString:@""]) {
-                    firstLetter = [self getFirstUpperLetter:userInfo.displayName];
+                if (userInfo.alias.length > 0 && ![userInfo.alias isEqualToString:@""]) {
+                    firstLetter = [self getFirstUpperLetter:userInfo.alias];
                 } else {
                     firstLetter = [self getFirstUpperLetter:userInfo.name];
                 }
@@ -246,7 +263,7 @@
     return img;
 }
 
-+ (NSString *)getDataString:(long long)time {
++ (NSString *)getDateString:(long long)time {
     if (time <= 0) {
         return @"0000-00-00 00:00:00";
     }
@@ -312,8 +329,8 @@
         if (friend.portraitUri.length == 0) {
             friend.portraitUri = [self defaultUserPortrait:friend];
         }
-        RCUserInfo *user =
-            [[RCUserInfo alloc] initWithUserId:userId name:friend.displayName portrait:friend.portraitUri];
+        RCUserInfo *user = [[RCUserInfo alloc] initWithUserId:userId name:friend.name portrait:friend.portraitUri];
+        user.alias = friend.displayName;
         result(user);
         [[RCIM sharedRCIM] refreshGroupUserInfoCache:user withUserId:userId withGroupId:groupId];
     } else {
@@ -322,6 +339,9 @@
                             RCDGroupMember *memberDetail = [RCDGroupManager getGroupMember:userId groupId:groupId];
                             if (groupId.length > 0 && memberDetail.groupNickname.length > 0) {
                                 user.name = memberDetail.groupNickname;
+                                if (friend.displayName.length > 0) {
+                                    user.alias = friend.displayName;
+                                }
                             }
                             result(user);
                             [[RCIM sharedRCIM] refreshGroupUserInfoCache:user withUserId:userId withGroupId:groupId];
@@ -335,8 +355,8 @@
         if (friend.portraitUri.length == 0) {
             friend.portraitUri = [self defaultUserPortrait:friend];
         }
-        RCUserInfo *user =
-            [[RCUserInfo alloc] initWithUserId:userId name:friend.displayName portrait:friend.portraitUri];
+        RCUserInfo *user = [[RCUserInfo alloc] initWithUserId:userId name:friend.name portrait:friend.portraitUri];
+        user.alias = friend.displayName;
         completeBlock(user);
     } else {
         RCDUserInfo *user = [RCDUserInfoManager getUserInfo:userId];
@@ -441,4 +461,66 @@
     return NO;
 }
 
++ (NSString *)getConversationTypeName:(RCConversationType)type {
+    NSString *typeName;
+    switch (type) {
+        case ConversationType_PRIVATE:
+            typeName = @"private";
+            break;
+        case ConversationType_DISCUSSION:
+            typeName = @"discussion";
+            break;
+        case ConversationType_GROUP:
+            typeName = @"group";
+            break;
+        case ConversationType_CHATROOM:
+            typeName = @"chatroom";
+            break;
+        case ConversationType_CUSTOMERSERVICE:
+            typeName = @"customer_service";
+            break;
+        case ConversationType_SYSTEM:
+            typeName = @"system";
+            break;
+        case ConversationType_APPSERVICE:
+            typeName = @"app_public_service";
+            break;
+        case ConversationType_PUBLICSERVICE:
+            typeName = @"public_servcie";
+            break;
+        case ConversationType_PUSHSERVICE:
+            typeName = @"push_service";
+            break;
+        case ConversationType_ULTRAGROUP:
+            typeName = @"ultragroup";
+            break;
+        case ConversationType_Encrypted:
+            typeName = @"encrypted";
+            break;
+        case ConversationType_RTC:
+            typeName = @"rtc_room";
+            break;
+        default:
+            typeName = @"none";
+    }
+    return typeName;
+}
+
++ (NSString *)getBlockTypeName:(RCMessageBlockType)type {
+    NSString *typeName;
+    switch (type) {
+        case RCMessageBlockTypeGlobal:
+            typeName = @"全局敏感词";
+            break;
+        case RCMessageBlockTypeCustom:
+            typeName = @"自定义敏感词拦截";
+            break;
+        case RCMessageBlockTypeThirdParty:
+            typeName = @"第三方审核拦截";
+            break;
+        default:
+            typeName = @"unknown";
+    }
+    return typeName;
+}
 @end

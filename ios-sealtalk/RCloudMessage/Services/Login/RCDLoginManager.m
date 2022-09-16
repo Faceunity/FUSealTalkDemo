@@ -35,6 +35,21 @@ static NSString *const DBName = @"SealTalkDB";
                           error:errorBlock];
 }
 
++ (void)loginWithPhone:(NSString *)phone
+      verificationCode:(NSString *)verificationCode
+                region:(NSString *)region
+               success:(void (^)(NSString *token, NSString *userId, NSString *nickName))successBlock
+                 error:(void (^)(RCDLoginErrorCode errorCode))errorBlock{
+    [RCDLoginAPI loginWithPhone:phone verificationCode:verificationCode region:region success:^(NSString *token, NSString *userId, NSString *nickName) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self openDB:userId];
+        });
+        if (successBlock) {
+            successBlock(token, userId, nickName);
+        }
+    } error:errorBlock];
+}
+
 + (void)logout:(void (^)(BOOL))completeBlock {
     [RCDLoginAPI logout:^(BOOL success) {
         if (success) {
@@ -63,34 +78,6 @@ static NSString *const DBName = @"SealTalkDB";
     return [RCDDBManager openDB:dbPath];
 }
 
-+ (void)getVersionInfo:(void (^)(BOOL, NSString *))completeBlock {
-    [RCDLoginAPI getVersionInfo:^(NSDictionary *versionInfo) {
-        if (versionInfo) {
-            BOOL isNeedUpdate = [[versionInfo objectForKey:@"isNeedUpdate"] boolValue];
-            NSString *finalURL = nil;
-            if (isNeedUpdate) {
-                //获取系统当前的时间戳
-                NSDate *dat = [NSDate dateWithTimeIntervalSinceNow:0];
-                NSTimeInterval now = [dat timeIntervalSince1970] * 1000;
-                NSString *timeString = [NSString stringWithFormat:@"%f", now];
-                //为html增加随机数，避免缓存。
-                NSString *applist = [versionInfo objectForKey:@"applist"];
-                applist = [NSString stringWithFormat:@"%@?%@", applist, timeString];
-                finalURL = [NSString stringWithFormat:@"itms-services://?action=download-manifest&url=%@", applist];
-            }
-            if (completeBlock) {
-                completeBlock(isNeedUpdate, finalURL);
-            }
-        }
-    }];
-}
-
-+ (void)checkPhoneNumberAvailable:(NSString *)phoneCode
-                      phoneNumber:(NSString *)phoneNumber
-                         complete:(void (^)(BOOL, BOOL))completeBlock {
-    [RCDLoginAPI checkPhoneNumberAvailable:phoneCode phoneNumber:phoneNumber complete:completeBlock];
-}
-
 + (void)getVerificationCode:(NSString *)phoneCode
                 phoneNumber:(NSString *)phoneNumber
                     success:(void (^)(BOOL))successBlock
@@ -109,24 +96,6 @@ static NSString *const DBName = @"SealTalkDB";
                        verificationCode:verificationCode
                                 success:successBlock
                                   error:errorBlock];
-}
-
-+ (void)registerWithNickname:(NSString *)nickname
-                    password:(NSString *)password
-            verficationToken:(NSString *)verficationToken
-                    complete:(void (^)(BOOL))completeBlock {
-    [RCDLoginAPI registerWithNickname:nickname
-                             password:password
-                     verficationToken:verficationToken
-                             complete:completeBlock];
-}
-
-+ (void)changePassword:(NSString *)oldPwd newPwd:(NSString *)newPwd complete:(void (^)(BOOL))completeBlock {
-    [RCDLoginAPI changePassword:oldPwd newPwd:newPwd complete:completeBlock];
-}
-
-+ (void)resetPassword:(NSString *)password vToken:(NSString *)verificationToken complete:(void (^)(BOOL))completeBlock {
-    [RCDLoginAPI resetPassword:password vToken:verificationToken complete:completeBlock];
 }
 
 + (void)getRegionlist:(void (^)(NSArray *_Nonnull))completeBlock {

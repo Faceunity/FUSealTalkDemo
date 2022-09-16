@@ -2,11 +2,19 @@
 //  RCCallTipMessageCell.h
 //  RongCallKit
 //
-//  Created by 岑裕 on 16/3/20.
+//  Created by RongCloud on 16/3/20.
 //  Copyright © 2016年 RongCloud. All rights reserved.
 //
 
+#if __has_include(<RongIMKit/RongIMKit.h>)
+
 #import <RongIMKit/RongIMKit.h>
+
+#else
+
+#import "RongIMKit.h"
+
+#endif
 
 /*!
  简略的通话摘要消息Cell
@@ -16,7 +24,7 @@
 /*!
  显示的内容Label
  */
-@property(strong, nonatomic) RCTipLabel *messageLabel;
+@property (strong, nonatomic) RCTipLabel *messageLabel;
 
 /*!
  设置当前消息Cell的数据模型

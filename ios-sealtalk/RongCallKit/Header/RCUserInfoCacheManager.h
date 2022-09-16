@@ -2,32 +2,33 @@
 //  RCUserInfoCacheManager.h
 //  RongIMKit
 //
-//  Created by 岑裕 on 16/1/22.
+//  Created by RongCloud on 16/1/22.
 //  Copyright © 2016年 RongCloud. All rights reserved.
 //
 
 #import <Foundation/Foundation.h>
-#import <RongIMKit/RongIMKit.h>
-@class RCUserInfoCacheDBHelper;
+#import "RongCallKitAdaptiveHeader.h"
+@class RCUserInfoCacheDBHelper, RCPublicServiceProfile;
 
 //消息分发
 FOUNDATION_EXPORT NSString *const RCKitDispatchUserInfoUpdateNotification;
 FOUNDATION_EXPORT NSString *const RCKitDispatchGroupUserInfoUpdateNotification;
 FOUNDATION_EXPORT NSString *const RCKitDispatchGroupInfoUpdateNotification;
+FOUNDATION_EXPORT NSString *const RCKitDispatchPublicServiceInfoNotification;
 
 #define rcUserInfoWorkingDBHelper ([RCUserInfoCacheManager sharedManager].workingDBHelper)
 #define rcUserInfoDBQueue ([RCUserInfoCacheManager sharedManager].dbQueue)
 
 @interface RCUserInfoCacheManager : NSObject
 
-@property(nonatomic, strong) RCUserInfoCacheDBHelper *workingDBHelper;
-@property(nonatomic, strong) dispatch_queue_t dbQueue;
+@property (nonatomic, strong) RCUserInfoCacheDBHelper *workingDBHelper;
+@property (nonatomic, strong) dispatch_queue_t dbQueue;
 
 + (instancetype)sharedManager;
 
 // appkey, token, userId, 确定存储的DB路径
-@property(nonatomic, strong) NSString *appKey;
-@property(nonatomic, strong) NSString *currentUserId;
+@property (nonatomic, strong) NSString *appKey;
+@property (nonatomic, strong) NSString *currentUserId;
 
 #pragma mark - UserInfo
 
@@ -50,7 +51,7 @@ FOUNDATION_EXPORT NSString *const RCKitDispatchGroupInfoUpdateNotification;
 
 #pragma mark - GroupUserInfo (sugar for ConversationUserInfo)
 
-@property(nonatomic, assign) BOOL groupUserInfoEnabled;
+@property (nonatomic, assign) BOOL groupUserInfoEnabled;
 
 - (RCUserInfo *)getUserInfo:(NSString *)userId inGroupId:(NSString *)groupId;
 
@@ -84,4 +85,6 @@ FOUNDATION_EXPORT NSString *const RCKitDispatchGroupInfoUpdateNotification;
 
 - (void)clearAllGroupInfo;
 
+#pragma mark - PublicServiceProfile
+- (RCPublicServiceProfile *)getPublicServiceProfile:(NSString *)serviceId;
 @end

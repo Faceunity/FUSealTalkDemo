@@ -16,14 +16,19 @@
 #define RONGCLOUD_FILE_SERVER @""
 #define RONGCLOUD_STATS_SERVER @""
 
+
 #define RCDGroupNoticeTargetId @"__group_apply__"
 #define RCDOpenQRCodeUrlNotification @"RCDOpenQRCodeUrlNotification"
 #define RCDQRCodeContentInfoUrl @"http://sealtalk.rongcloud.cn/download"
 
+#define RCDLoginCookieExpiredNotification @"RCDLoginCookieExpiredNotification"
 
 #define SealTalkLog(s, ...) NSLog((@"[SealTalkLog]%s [Line %d] " s), __PRETTY_FUNCTION__, __LINE__, ##__VA_ARGS__);
 
 #define RCDMetionAllUsetId @"All"
+
+// 是否启用翻译功能
+#define RCDTranslationEnable 0
 
 #define DEFAULTS [NSUserDefaults standardUserDefaults]
 #define ShareApplicationDelegate [[UIApplication sharedApplication] delegate]
@@ -54,4 +59,7 @@
         dispatch_async(dispatch_get_main_queue(), block);                                                              \
     }
 #endif
-//#define USE_SignalingKit true
+
+// 是否禁用反黑产功能
+#define RCDDebugFraundPreventionDisable 1
+

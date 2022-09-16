@@ -7,7 +7,8 @@
 //
 
 #import "RCDNavigationViewController.h"
-
+#import "RCDCommonDefine.h"
+#import "RCDUtilities.h"
 @interface RCDNavigationViewController ()
 
 @end
@@ -28,12 +29,12 @@
     }
 }
 
-- (void)viewWillLayoutSubviews {
-    [super viewWillLayoutSubviews];
-    //去掉导航下的线
-    UIView *backgroundView = [self.navigationBar subviews].firstObject;
-    UIImageView *navLine = backgroundView.subviews.firstObject;
-    navLine.hidden = YES;
+- (BOOL)shouldAutorotate{
+    return NO;
+}
+
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations{
+    return UIInterfaceOrientationMaskPortrait;
 }
 
 - (void)pushViewController:(UIViewController *)viewController animated:(BOOL)animated {

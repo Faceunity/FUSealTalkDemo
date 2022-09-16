@@ -16,6 +16,9 @@
 #import "RCDUtilities.h"
 #import "UIColor+RCColor.h"
 #import "UIView+MBProgressHUD.h"
+#import "RCDSearchController.h"
+#import "RCDUltraGroupManager.h"
+#import "NormalAlertView.h"
 @interface RCDChooseUserController () <UISearchControllerDelegate, UISearchResultsUpdating>
 @property (nonatomic, strong) NSArray *allMembers;
 @property (nonatomic, strong) NSString *groupId;
@@ -23,21 +26,27 @@
 @property (nonatomic, strong) NSDictionary *resultSectionDict;
 @property (nonatomic, strong) NSMutableArray *searchKeys;
 @property (nonatomic, strong) NSMutableDictionary *searchResultDic;
-@property (nonatomic, retain) UISearchController *searchController;
+@property (nonatomic, retain) RCDSearchController *searchController;
+@property (nonatomic, assign) BOOL isUltraGroup;
 @end
 
 @implementation RCDChooseUserController
 #pragma mark - life cycle
 - (instancetype)initWithGroupId:(NSString *)groupId {
+    return [self initWithGroupId:groupId isUltraGroup:NO];
+}
+
+- (instancetype)initWithGroupId:(NSString *)groupId isUltraGroup:(BOOL)isUltraGroup{
     if (self = [super init]) {
         self.groupId = groupId;
+        self.isUltraGroup = isUltraGroup;
     }
     return self;
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = NSLocalizedStringFromTable(@"SelectMentionedUser", @"RongCloudKit", nil);
+    self.title = RCLocalizedString(@"SelectMentionedUser");
     self.definesPresentationContext = YES;
     self.tableView.tableHeaderView = self.searchController.searchBar;
     if ([self.tableView respondsToSelector:@selector(setCellLayoutMarginsFollowReadableWidth:)]) {
@@ -68,9 +77,11 @@
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     RCDGroupMemberCell *cell = [RCDGroupMemberCell cellWithTableView:tableView];
-    if (indexPath.section == 0) {
-        cell.portraitImageView.image = [UIImage imageNamed:@"choose_all"];
-        cell.nameLabel.text = RCDLocalizedString(@"mention_all");
+    if (indexPath.section == 0 ) {
+        if (self.searchController.searchBar.text.length == 0) {
+            cell.portraitImageView.image = [UIImage imageNamed:@"choose_all"];
+            cell.nameLabel.text = RCDLocalizedString(@"mention_all");
+        }
     } else {
         NSString *key = self.resultKeys[indexPath.section - 1];
         NSArray *array = self.resultSectionDict[key];
@@ -115,6 +126,9 @@
 }
 
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (indexPath.section == 0 && self.searchController.searchBar.text.length > 0) {
+        return 0;
+    }
     return 55.0;
 }
 
@@ -150,9 +164,8 @@
         NSMutableArray *array = [NSMutableArray array];
         for (RCUserInfo *userInfo in self.allMembers) {
             RCUserInfo *user = [RCDUserInfoManager getUserInfo:userInfo.userId];
-            RCDFriendInfo *friend = [RCDUserInfoManager getFriendInfo:userInfo.userId];
             RCDGroupMember *member = [RCDGroupManager getGroupMember:userInfo.userId groupId:self.groupId];
-            if ([user.name containsString:searchString] || [friend.displayName containsString:searchString] ||
+            if ([user.name containsString:searchString] || [user.alias containsString:searchString] ||
                 [member.groupNickname containsString:searchString]) {
                 [array addObject:userInfo];
             }
@@ -169,20 +182,34 @@
 
 #pragma mark - helper
 - (void)getData {
-    NSMutableArray *array = [RCDGroupManager getGroupMembers:self.groupId].mutableCopy;
-    if (array.count == 0) {
+    if (self.isUltraGroup) {
         __weak typeof(self) weakSelf = self;
-        [RCDGroupManager getGroupMembersFromServer:self.groupId
-                                          complete:^(NSArray<NSString *> *memberIdList) {
-                                              if (memberIdList) {
-                                                  dispatch_async(dispatch_get_main_queue(), ^{
-                                                      [weakSelf handleData:memberIdList.mutableCopy];
-                                                  });
-                                              }
-                                          }];
-    } else {
-        [self handleData:array];
+        [RCDUltraGroupManager getUltraGroupMemberList:self.groupId count:50 complete:^(NSArray<NSString *> *memberIdList) {
+            if (memberIdList) {
+                [weakSelf handleData:memberIdList.mutableCopy];
+            }else{
+                [NormalAlertView showAlertWithTitle:nil message:RCDLocalizedString(@"获取成员列表失败") describeTitle:nil confirmTitle:RCDLocalizedString(@"confirm") confirm:^{
+                    [weakSelf.navigationController dismissViewControllerAnimated:YES completion:nil];
+                }];
+            }
+        }];
+    }else{
+        NSMutableArray *array = [RCDGroupManager getGroupMembers:self.groupId].mutableCopy;
+        if (array.count == 0) {
+            __weak typeof(self) weakSelf = self;
+            [RCDGroupManager getGroupMembersFromServer:self.groupId
+                                              complete:^(NSArray<NSString *> *memberIdList) {
+                                                  if (memberIdList) {
+                                                      dispatch_async(dispatch_get_main_queue(), ^{
+                                                          [weakSelf handleData:memberIdList.mutableCopy];
+                                                      });
+                                                  }
+                                              }];
+        } else {
+            [self handleData:array];
+        }
     }
+    
 }
 
 - (void)dismissVC {
@@ -201,9 +228,11 @@
         RCUserInfo *user = [RCDUserInfoManager getUserInfo:userId];
         RCDFriendInfo *friend = [RCDUserInfoManager getFriendInfo:userId];
         if (friend.displayName.length > 0) {
-            user.name = friend.displayName;
+            user.alias = friend.displayName;
         }
-        [list addObject:user];
+        if (user) { // 查询不到用户, 会引起crash
+            [list addObject:user];
+        }
     }
     self.allMembers = list.copy;
     [self sortAndRefreshWithList:list.copy];
@@ -221,20 +250,11 @@
 }
 
 #pragma mark - getter
-- (UISearchController *)searchController {
+- (RCDSearchController *)searchController {
     if (!_searchController) {
-        _searchController = [[UISearchController alloc] initWithSearchResultsController:nil];
+        _searchController = [[RCDSearchController alloc] initWithSearchResultsController:nil];
         _searchController.delegate = self;
         _searchController.searchResultsUpdater = self;
-        //提醒字眼
-        _searchController.searchBar.placeholder = NSLocalizedStringFromTable(@"ToSearch", @"RongCloudKit", nil);
-        if (@available(iOS 13.0, *)) {
-            _searchController.searchBar.searchTextField.backgroundColor =
-                [RCDUtilities generateDynamicColor:HEXCOLOR(0xffffff)
-                                         darkColor:[HEXCOLOR(0x1c1c1e) colorWithAlphaComponent:0.6]];
-        }
-        //设置顶部搜索栏的背景色
-        _searchController.searchBar.barTintColor = RCDDYCOLOR(0xf0f0f6, 0x000000);
         _searchController.dimsBackgroundDuringPresentation = NO;
     }
     return _searchController;

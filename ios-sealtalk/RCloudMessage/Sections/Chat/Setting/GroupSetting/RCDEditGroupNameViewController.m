@@ -10,7 +10,7 @@
 #import "RCDUIBarButtonItem.h"
 #import "RCDGroupManager.h"
 #import "UIColor+RCColor.h"
-#import <RongCloudOpenSource/RongIMKit.h>
+#import <RongIMKit/RongIMKit.h>
 
 @interface RCDEditGroupNameViewController ()
 /**

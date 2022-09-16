@@ -11,7 +11,7 @@
 #import "RCDGroupManager.h"
 #import <SDWebImage/SDWebImage.h>
 #import "DefaultPortraitView.h"
-#import <RongCloudOpenSource/RongIMKit.h>
+#import <RongIMKit/RongIMKit.h>
 #import "RCDUserInfoManager.h"
 #import "UIView+MBProgressHUD.h"
 #import "NormalAlertView.h"

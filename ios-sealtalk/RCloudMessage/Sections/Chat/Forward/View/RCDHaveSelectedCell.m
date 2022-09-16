@@ -41,7 +41,7 @@
                     [DefaultPortraitView portraitView:groupInfo.groupId name:groupInfo.groupName];
             } else {
                 [self.headerImageView sd_setImageWithURL:[NSURL URLWithString:groupInfo.portraitUri]
-                                        placeholderImage:[UIImage imageNamed:@"default_group_portrait"]];
+                                        placeholderImage:RCResourceImage(@"default_group_portrait")];
             }
             self.conversationTitleLabel.text = groupInfo.groupName;
         }
@@ -49,7 +49,7 @@
         RCUserInfo *currentUserInfo = [RCIM sharedRCIM].currentUserInfo;
         if ([model.targetId isEqualToString:currentUserInfo.userId]) {
             [self.headerImageView sd_setImageWithURL:[NSURL URLWithString:currentUserInfo.portraitUri]
-                                    placeholderImage:[UIImage imageNamed:@"default_portrait_msg"]];
+                                    placeholderImage:RCResourceImage(@"default_portrait_msg")];
             self.conversationTitleLabel.text = currentUserInfo.name;
         } else {
             RCDFriendInfo *friendInfo = [RCDUserInfoManager getFriendInfo:model.targetId];
@@ -59,10 +59,9 @@
                         [DefaultPortraitView portraitView:friendInfo.userId name:friendInfo.name];
                 } else {
                     [self.headerImageView sd_setImageWithURL:[NSURL URLWithString:friendInfo.portraitUri]
-                                            placeholderImage:[UIImage imageNamed:@"default_portrait_msg"]];
+                                            placeholderImage:RCResourceImage(@"default_portrait_msg")];
                 }
-                self.conversationTitleLabel.text =
-                    friendInfo.displayName.length > 0 ? friendInfo.displayName : friendInfo.name;
+                self.conversationTitleLabel.text = [RCKitUtility getDisplayName:friendInfo];
             }
         }
     }
@@ -104,6 +103,13 @@
 - (UIImageView *)headerImageView {
     if (!_headerImageView) {
         _headerImageView = [[UIImageView alloc] init];
+        _headerImageView.layer.masksToBounds = YES;
+        if (RCKitConfigCenter.ui.globalConversationAvatarStyle == RC_USER_AVATAR_CYCLE &&
+            RCKitConfigCenter.ui.globalMessageAvatarStyle == RC_USER_AVATAR_CYCLE) {
+            _headerImageView.layer.cornerRadius = 20.f;
+        } else {
+            _headerImageView.layer.cornerRadius = 5.f;
+        }
     }
     return _headerImageView;
 }

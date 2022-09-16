@@ -112,6 +112,10 @@
     return cell;
 }
 
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section{
+    return CGFLOAT_MIN;
+}
+
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     switch (indexPath.row) {
     case 0: {
@@ -164,9 +168,6 @@
 
 #pragma mark 私有方法
 - (void)setTableViewLayout {
-    self.tableView.delegate = self;
-    self.tableView.dataSource = self;
-
     self.tableView.frame = [[UIScreen mainScreen] bounds];
     [self.view addSubview:self.tableView];
 
@@ -224,23 +225,16 @@
 }
 
 - (void)AlertMessage:(NSString *)message {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        UIAlertController *alertController =
-            [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
-        [alertController addAction:[UIAlertAction actionWithTitle:RCDLocalizedString(@"confirm")
-                                                            style:UIAlertActionStyleDefault
-                                                          handler:nil]];
-        [self presentViewController:alertController animated:YES completion:nil];
-    });
+    [RCAlertView showAlertController:nil message:message cancelTitle:RCDLocalizedString(@"confirm") inViewController:self];
 }
 
 - (void)initUI {
-    RCDUIBarButtonItem *leftBtn = [[RCDUIBarButtonItem alloc] initWithLeftBarButton:RCDLocalizedString(@"me")
-                                                                             target:self
-                                                                             action:@selector(clickBackBtn:)];
-    self.navigationItem.leftBarButtonItem = leftBtn;
+    self.navigationItem.leftBarButtonItems = [RCDUIBarButtonItem getLeftBarButton:RCDLocalizedString(@"me") target:self action:@selector(clickBackBtn:)];
 
     self.tableView = [[RCDTableView alloc] init];
+    self.tableView.delegate = self;
+    self.tableView.dataSource = self;
+    self.tableView.tableFooterView = [UIView new];
     [self setTableViewLayout];
 
     self.pickerView = [[UIPickerView alloc] init];

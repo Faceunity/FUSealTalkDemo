@@ -7,7 +7,7 @@
 //
 
 #import "RCDTableView.h"
-#import <RongCloudOpenSource/RongIMKit.h>
+#import <RongIMKit/RongIMKit.h>
 NS_ASSUME_NONNULL_BEGIN
 
 @interface RCDDebubMessageUIdListView : RCDTableView

@@ -15,6 +15,19 @@
 #import <GCDWebServer/GCDWebUploader.h>
 #import "RCDDebugJoinChatroomViewController.h"
 #import "RCDDataStatistics.h"
+#import "RCDDebugSelectChatController.h"
+#import "RCDDebugDiscussionController.h"
+#import "RCDDebugMessagePushConfigController.h"
+#import "RCDDebugChatListViewController.h"
+#import "UIView+MBProgressHUD.h"
+#import "RCDDebugConversationTagController.h"
+#import "RCDDebugGroupChatListViewController.h"
+#import "RCDDebugMsgShortageChatListController.h"
+#import <UMCommon/UMCommon.h>
+#import "RCDDebugUltraGroupListController.h"
+#import <RongChatRoom/RongChatRoom.h>
+#import "UIView+MBProgressHUD.h"
+#import "RCDDebugComChatListController.h"
 
 #define DISPLAY_ID_TAG 100
 #define DISPLAY_ONLINE_STATUS_TAG 101
@@ -22,7 +35,10 @@
 #define DATA_STATISTICS_TAG 103
 #define BURN_MESSAGE_TAG 104
 #define SEND_COMBINE_MESSAGE_TAG 105
-
+#define DISABLE_SYSTEM_EMOJI_TAG 106
+#define DISABLE_UTRAL_GORUP_SYNC_TAG 107
+#define DISABLE_KEYBOARD_TAG 108
+#define DISABLE_ULTRA_GROUP_TAG 109
 #define FILEMANAGER [NSFileManager defaultManager]
 
 @interface RCDDebugTableViewController ()
@@ -111,9 +127,24 @@
     if ([title isEqualToString:@"合并转发"]) {
         [self setSwitchButtonCell:cell tag:SEND_COMBINE_MESSAGE_TAG];
     }
+    if ([title isEqualToString:@"禁用系统表情"]) {
+        [self setSwitchButtonCell:cell tag:DISABLE_SYSTEM_EMOJI_TAG];
+    }
+    if ([title isEqualToString:@"超级群消息同步监听"]) {
+        [self setSwitchButtonCell:cell tag:DISABLE_UTRAL_GORUP_SYNC_TAG];
+    }
+    if ([title isEqualToString:@"输入时弹框"]) {
+        [self setSwitchButtonCell:cell tag:DISABLE_KEYBOARD_TAG];
+    }
+    if ([title isEqualToString:@"超级群功能"]) {
+        [self setSwitchButtonCell:cell tag:DISABLE_ULTRA_GROUP_TAG];
+    }
+    
     if ([title isEqualToString:RCDLocalizedString(@"Set_offline_message_compensation_time")] ||
         [title isEqualToString:RCDLocalizedString(@"Set_global_DND_time")]) {
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    }
+    if([title isEqualToString:@"友盟设备识别信息"]){
     }
     return cell;
 }
@@ -133,13 +164,40 @@
         [self pushToNoDisturbVC];
     } else if ([title isEqualToString:@"进入聊天室存储测试"]) {
         [self pushToChatroomStatusVC];
-    } else if ([title isEqualToString:RCDLocalizedString(@"Set_chatroom_default_history_message")]) {
+    } else if([title isEqualToString:@"聊天室绑定RTCRoom"]) {
+        [self showChatroomBindAlert];
+    }
+    else if ([title isEqualToString:RCDLocalizedString(@"Set_chatroom_default_history_message")]) {
         [self showAlertController];
+    } else if ([title isEqualToString:@"讨论组"]) {
+        [self pushToDiscussionVC];
+    } else if ([title isEqualToString:@"配置消息推送属性"]) {
+        [self pushToMessagePushConfigVC];
+    } else if ([title isEqualToString:@"进入消息推送属性测试"]) {
+        [self pushToChatListVC];
+    } else if ([title isEqualToString:@"消息扩展"]){
+        [self pushDebugMessageExtensionVC];
+    } else if ([title isEqualToString:@"设置推送语言"]) {
+        [self setPushLauguageCode];
+    } else if ([title isEqualToString:@"会话标签"]) {
+        [self pushConversationTagVC];
+    }else if ([title isEqualToString:@"新的群已读回执"]) {
+        [self pushGroupChatListVC];
+    }else if ([title isEqualToString:@"消息断档"]) {
+        [self selectChatLoadMessageType];
+    }else if ([title isEqualToString:@"友盟设备识别信息"]) {
+        [self  showUMengDeviceInfoAlertController];
+    }else if ([title isEqualToString:@"超级群"]) {
+        [self pushUltraGroupChatListVC];
+    } else if ([title isEqualToString:@"普通群"]) {
+        [self showCommonChatRoom];
+    } else if ([title isEqualToString:@"选择聚合头像方式"]) {
+        [self selectConversationCollectionInfoModifyType];
     }
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
 }
 
-#pragma mark init data for tabelview
+#pragma mark - init data for tabelview
 - (void)initdata {
     NSMutableDictionary *dic = [NSMutableDictionary new];
 
@@ -154,9 +212,14 @@
         @"打开性能数据统计",
         @"阅后即焚",
         @"合并转发",
+        @"消息扩展",
+        @"禁用系统表情",
+        @"超级群消息同步监听",
+        @"输入时弹框",
+        @"超级群功能"
     ]
             forKey:RCDLocalizedString(@"custom_setting")];
-    [dic setObject:@[ @"进入聊天室存储测试", RCDLocalizedString(@"Set_chatroom_default_history_message") ]
+    [dic setObject:@[ @"进入聊天室存储测试", RCDLocalizedString(@"Set_chatroom_default_history_message"), @"聊天室绑定RTCRoom" ]
             forKey:@"聊天室测试"];
     [dic setObject:@[
         RCDLocalizedString(@"Set_offline_message_compensation_time"),
@@ -164,6 +227,7 @@
     ]
             forKey:RCDLocalizedString(@"time_setting")];
 
+    [dic setObject:@[@"讨论组", @"配置消息推送属性", @"进入消息推送属性测试", @"设置推送语言", @"会话标签",@"新的群已读回执", @"消息断档",@"友盟设备识别信息", @"超级群", @"普通群", @"选择聚合头像方式"] forKey:@"功能"];
     self.functions = [dic copy];
 }
 
@@ -185,33 +249,55 @@
     if (isNeedAdd == NO)
         return;
     UISwitch *switchView = [[UISwitch alloc] init];
+    switchView.onTintColor = HEXCOLOR(0x0099ff);
     switchView.translatesAutoresizingMaskIntoConstraints = NO;
     [switchView addTarget:self action:@selector(switchAction:) forControlEvents:UIControlEventValueChanged];
     switchView.tag = cell.tag;
     BOOL isButtonOn = NO;
     switch (cell.tag) {
-    case DISPLAY_ID_TAG: {
-        isButtonOn = [DEFAULTS boolForKey:RCDDisplayIDKey];
-    } break;
-
-    case DISPLAY_ONLINE_STATUS_TAG: {
-        isButtonOn = [DEFAULTS boolForKey:RCDDisplayOnlineStatusKey];
-    } break;
-
-    case JOIN_CHATROOM_TAG: {
-        isButtonOn = [DEFAULTS boolForKey:RCDStayAfterJoinChatRoomFailedKey];
-    } break;
-    case DATA_STATISTICS_TAG: {
-        isButtonOn = [DEFAULTS boolForKey:RCDDebugDataStatisticsKey];
-    } break;
-    case BURN_MESSAGE_TAG: {
-        isButtonOn = [DEFAULTS boolForKey:RCDDebugBurnMessageKey];
-    } break;
-    case SEND_COMBINE_MESSAGE_TAG: {
-        isButtonOn = [DEFAULTS boolForKey:RCDDebugSendCombineMessageKey];
-    } break;
-    default:
-        break;
+        case DISPLAY_ID_TAG: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDisplayIDKey];
+        } break;
+            
+        case DISPLAY_ONLINE_STATUS_TAG: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDisplayOnlineStatusKey];
+        }
+            break;
+        case JOIN_CHATROOM_TAG: {
+            isButtonOn = [DEFAULTS boolForKey:RCDStayAfterJoinChatRoomFailedKey];
+        }
+            break;
+        case DATA_STATISTICS_TAG: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugDataStatisticsKey];
+        }
+            break;
+        case BURN_MESSAGE_TAG: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugBurnMessageKey];
+        }
+            break;
+        case SEND_COMBINE_MESSAGE_TAG: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugSendCombineMessageKey];
+        }
+            break;
+        case DISABLE_SYSTEM_EMOJI_TAG:{
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugDisableSystemEmoji];
+            break;
+        }
+        case DISABLE_UTRAL_GORUP_SYNC_TAG: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugUtralGroupSyncKey];
+        }
+            break;
+        case DISABLE_KEYBOARD_TAG: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugInputKeyboardUIKey];
+        }
+            break;
+            
+        case DISABLE_ULTRA_GROUP_TAG:{
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugUltraGroupEnable];
+        }
+            break;
+        default:
+            break;
     }
     switchView.on = isButtonOn;
     [cell.contentView addSubview:switchView];
@@ -259,13 +345,33 @@
     case BURN_MESSAGE_TAG: {
         [DEFAULTS setBool:isButtonOn forKey:RCDDebugBurnMessageKey];
         [DEFAULTS synchronize];
-        [RCIM sharedRCIM].enableBurnMessage = isButtonOn;
+        RCKitConfigCenter.message.enableDestructMessage = isButtonOn;
     } break;
     case SEND_COMBINE_MESSAGE_TAG: {
         [DEFAULTS setBool:isButtonOn forKey:RCDDebugSendCombineMessageKey];
         [DEFAULTS synchronize];
         [RCIM sharedRCIM].enableSendCombineMessage = isButtonOn;
     } break;
+        case DISABLE_SYSTEM_EMOJI_TAG:{
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugDisableSystemEmoji];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case DISABLE_UTRAL_GORUP_SYNC_TAG: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugUtralGroupSyncKey];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case DISABLE_KEYBOARD_TAG: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugInputKeyboardUIKey];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case DISABLE_ULTRA_GROUP_TAG: {
+            [self showUltraGroupAlert:switchButton];
+            break;
+        }
+            
     default:
         break;
     }
@@ -277,6 +383,26 @@
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
 }
 
+-(void)showUltraGroupAlert:(UISwitch *)btnSwitch {
+    UIAlertController *alertController =
+        [UIAlertController alertControllerWithTitle:@"超级群功能变更"
+                                            message:@"为了变更生效,需要重启App"
+                                     preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertAction *okAction =
+    [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        [DEFAULTS setBool:btnSwitch.isOn forKey:RCDDebugUltraGroupEnable];
+        [DEFAULTS synchronize];
+        exit(0);
+    }];
+    [alertController addAction:okAction];
+
+    UIAlertAction *cancelAction =
+    [UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        btnSwitch.on = !btnSwitch.isOn;
+    }];
+    [alertController addAction:cancelAction];
+    [self presentViewController:alertController animated:YES completion:nil];
+}
 /**
  强制Crash
  */
@@ -302,17 +428,45 @@
     [self.navigationController pushViewController:vc animated:YES];
 }
 
+- (void)pushDebugMessageExtensionVC{
+    RCDDebugSelectChatController *vc = [[RCDDebugSelectChatController alloc] init];
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)pushConversationTagVC{
+    RCDDebugConversationTagController *vc = [[RCDDebugConversationTagController alloc] init];
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)pushGroupChatListVC{
+    RCDDebugGroupChatListViewController *vc = [[RCDDebugGroupChatListViewController alloc] init];
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)selectChatLoadMessageType{
+    [RCActionSheetView showActionSheetView:nil cellArray:@[@"总是加载", @"询问加载", @"只有成功时加载"] cancelTitle:RCDLocalizedString(@"Cancel") selectedBlock:^(NSInteger index) {
+        [[NSUserDefaults standardUserDefaults] setObject:@(index) forKey:@"RCDChatLoadMessageType"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+    } cancelBlock:^{
+        
+    }];
+}
+
+// 设置聚合头像的改变方式
+- (void)selectConversationCollectionInfoModifyType {
+    [RCActionSheetView showActionSheetView:nil cellArray:@[@"恢复默认", @"显示前修改聚合", @"全局配置修改聚合"] cancelTitle:RCDLocalizedString(@"Cancel") selectedBlock:^(NSInteger index) {
+        [[NSUserDefaults standardUserDefaults] setObject:@(index) forKey:@"selectConversationCollectionInfoModifyType"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+    } cancelBlock:^{
+        
+    }];
+}
 - (void)startHttpServer {
     NSString *homePath = NSHomeDirectory();
     self.webUploader = [[GCDWebUploader alloc] initWithUploadDirectory:homePath];
     if ([self.webUploader start]) {
         NSString *host = self.webUploader.serverURL.absoluteString;
-        UIAlertController *alertController =
-            [UIAlertController alertControllerWithTitle:host
-                                                message:@"请在电脑浏览器打开上面的地址"
-                                         preferredStyle:UIAlertControllerStyleAlert];
-        [alertController addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil]];
-        [self presentViewController:alertController animated:YES completion:nil];
+        [RCAlertView showAlertController:host message:@"请在电脑浏览器打开上面的地址" cancelTitle:@"确定" inViewController:self];
         NSLog(@"web uploader host:%@ port:%@", host, @(self.webUploader.port));
     }
 }
@@ -344,9 +498,97 @@
     [self presentViewController:alertController animated:YES completion:nil];
 }
 
+- (void)showChatroomBindAlert {
+    __block UITextField *txtChatroomID;
+    __block UITextField *txtRtcRoomID;
+    UIAlertController *alertController =
+        [UIAlertController alertControllerWithTitle:@"聊天室绑定RTCRoom"
+                                            message:nil
+                                     preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertAction *cancelAction =
+        [UIAlertAction actionWithTitle:RCDLocalizedString(@"cancel") style:UIAlertActionStyleDefault handler:nil];
+    UIAlertAction *okAction =
+        [UIAlertAction actionWithTitle:RCDLocalizedString(@"OK")
+                                 style:UIAlertActionStyleDefault
+                               handler:^(UIAlertAction *_Nonnull action) {
+                                    NSString *chatroomID = txtChatroomID.text;
+            NSString *rtcroomID = txtRtcRoomID.text;
+            [self bindChatroom:chatroomID rtcRoom:rtcroomID];
+                               }];
+    [alertController addAction:cancelAction];
+    [alertController addAction:okAction];
+
+    [alertController addTextFieldWithConfigurationHandler:^(UITextField *_Nonnull textField) {
+        textField.placeholder = @"Chatroom ID";
+        txtChatroomID = textField;
+    }];
+    [alertController addTextFieldWithConfigurationHandler:^(UITextField *_Nonnull textField) {
+        textField.placeholder = @"RTC room ID";
+        txtRtcRoomID = textField;
+    }];
+    [self presentViewController:alertController animated:YES completion:nil];
+}
+
+- (void)bindChatroom:(NSString *)chatroomID rtcRoom:(NSString *)rtcroomID {
+    __weak __typeof(self)weakSelf = self;
+    [[RCChatRoomClient sharedChatRoomClient] bindChatRoom:chatroomID withRTCRoom:rtcroomID success:^{
+        [weakSelf showTipsBy:@"绑定成功"];
+    } error:^(RCErrorCode nErrorCode) {
+        NSString *text =[NSString stringWithFormat:@"绑定失败: %ld", (long)nErrorCode];
+        [weakSelf showTipsBy:text];
+    }];
+}
+
+- (void)showTipsBy:(NSString *)msg {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.view showHUDMessage:msg];
+    });
+}
+-(void)showUMengDeviceInfoAlertController {
+    __block NSString * deviceID =[UMConfigure deviceIDForIntegration];
+    __block UITextField *tempTextField;
+    UIAlertController *alertController =
+        [UIAlertController alertControllerWithTitle:@"友盟设备信息"
+                                            message:nil
+                                     preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertAction *cancelAction =
+        [UIAlertAction actionWithTitle:RCDLocalizedString(@"cancel") style:UIAlertActionStyleDefault handler:nil];
+    [alertController addAction:cancelAction];
+    [alertController addTextFieldWithConfigurationHandler:^(UITextField *_Nonnull textField) {
+        tempTextField = textField;
+        tempTextField.text = deviceID;
+    }];
+    [self presentViewController:alertController animated:YES completion:nil];
+}
+
+- (void)pushUltraGroupChatListVC {
+    RCDDebugUltraGroupListController *vc = [[RCDDebugUltraGroupListController alloc] init];
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)showCommonChatRoom {
+    RCDDebugComChatListController *vc = [[RCDDebugComChatListController alloc] init];
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
 - (void)pushToChatroomStatusVC {
     RCDDebugJoinChatroomViewController *vc = [[RCDDebugJoinChatroomViewController alloc] init];
     vc.title = @"加入聊天室";
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)pushToDiscussionVC{
+    RCDDebugDiscussionController *vc = [[RCDDebugDiscussionController alloc] init];
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)pushToMessagePushConfigVC {
+    RCDDebugMessagePushConfigController *vc = [[RCDDebugMessagePushConfigController alloc] init];
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)pushToChatListVC {
+    RCDDebugChatListViewController *vc = [[RCDDebugChatListViewController alloc] init];
     [self.navigationController pushViewController:vc animated:YES];
 }
 
@@ -513,4 +755,38 @@
         }
     }
 }
+
+- (void)setPushLauguageCode {
+    __block UITextField *tempTextField;
+    NSString *lauguageCode = [DEFAULTS objectForKey:RCDCurrentPushLauguageCodeKey];
+    NSString *message = [NSString stringWithFormat:@"当前推送语言为：%@", lauguageCode ?: @""];
+    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"设置推送语言，例如 zh_CN、en_US、ar_SA" message:message preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:RCDLocalizedString(@"cancel") style:UIAlertActionStyleDefault handler:nil];
+    UIAlertAction *okAction = [UIAlertAction actionWithTitle:RCDLocalizedString(@"OK") style:UIAlertActionStyleDefault handler:^(UIAlertAction *_Nonnull action) {
+        NSString *code = tempTextField.text;
+        [DEFAULTS setObject:code forKey:RCDCurrentPushLauguageCodeKey];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [MBProgressHUD showHUDAddedTo:self.view animated:YES];
+        });
+        [[[RCPushProfile alloc] init] setPushLauguageCode:code success:^{
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [MBProgressHUD hideHUDForView:self.view animated:YES];
+                [self.view showHUDMessage:@"设置成功"];
+            });
+        } error:^(RCErrorCode status) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [MBProgressHUD hideHUDForView:self.view animated:YES];
+                [self.view showHUDMessage:[NSString stringWithFormat:@"%@ %ld", RCDLocalizedString(@"Failed"), (long)status]];
+            });
+        }];
+    }];
+    [alertController addAction:cancelAction];
+    [alertController addAction:okAction];
+    
+    [alertController addTextFieldWithConfigurationHandler:^(UITextField *_Nonnull textField) {
+        tempTextField = textField;
+    }];
+    [self presentViewController:alertController animated:YES completion:nil];
+}
+
 @end

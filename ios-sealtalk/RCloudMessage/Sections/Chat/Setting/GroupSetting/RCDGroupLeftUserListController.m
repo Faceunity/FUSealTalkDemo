@@ -9,7 +9,7 @@
 #import "RCDGroupLeftUserListController.h"
 #import "RCDGroupLeftUserListCell.h"
 #import "RCDUserInfoManager.h"
-#import <RongCloudOpenSource/RongIMKit.h>
+#import <RongIMKit/RongIMKit.h>
 #import "RCDPersonDetailViewController.h"
 #import "RCDGroupManager.h"
 @interface RCDGroupLeftUserListController ()

@@ -2,34 +2,35 @@
 //  RCCallSelectMemberViewController.m
 //  RongCallKit
 //
-//  Created by 岑裕 on 16/3/12.
+//  Created by RongCloud on 16/3/12.
 //  Copyright © 2016年 RongCloud. All rights reserved.
 //
 
 #import "RCCallSelectMemberViewController.h"
 #import "RCCall.h"
+#import "RCCallBaseViewController.h"
 #import "RCCallKitUtility.h"
 #import "RCCallSelectingMemberCell.h"
-#import "RCUserInfoCacheManager.h"
 #import "RCCallToolBar.h"
-#import "RCCallBaseViewController.h"
-#import <RongIMKit/RongIMKit.h>
-#import "RCCallKitUtility.h"
+#import "RCUserInfoCacheManager.h"
+#import "RongCallKitAdaptiveHeader.h"
 
 #define FakeNavigationBarHeight 64
 
 typedef void (^CompleteBlock)(NSArray *addUserIdList);
 
-@interface RCCallSelectMemberViewController () <UISearchBarDelegate, UISearchControllerDelegate, UISearchResultsUpdating>
+@interface RCCallSelectMemberViewController () <UISearchBarDelegate,
+                                                UISearchControllerDelegate,
+                                                UISearchResultsUpdating>
 
-@property(nonatomic, strong) NSMutableArray *selectUserIds;
-@property(nonatomic, strong) CompleteBlock successBlock;
-@property(nonatomic, strong) RCCallToolBar *toolBar;
-@property(nonatomic, strong) UISearchBar *searchBar;
-@property(nonatomic, strong) UISearchController *searchController;
-@property(nonatomic, strong) UITableViewController *resultController;
-@property(nonatomic, strong) NSString *searchText;
-@property(nonatomic, strong) NSMutableArray *resultUserIdList;
+@property (nonatomic, strong) NSMutableArray *selectUserIds;
+@property (nonatomic, strong) CompleteBlock successBlock;
+@property (nonatomic, strong) RCCallToolBar *toolBar;
+@property (nonatomic, strong) UISearchBar *searchBar;
+@property (nonatomic, strong) UISearchController *searchController;
+@property (nonatomic, strong) UITableViewController *resultController;
+@property (nonatomic, strong) NSString *searchText;
+@property (nonatomic, strong) NSMutableArray *resultUserIdList;
 
 @end
 
@@ -45,15 +46,7 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
         self.targetId = targetId;
         self.mediaType = mediaType;
         __weak typeof(self) weakSelf = self;
-        if (conversationType == ConversationType_DISCUSSION) {
-            [[RCIMClient sharedRCIMClient] getDiscussion:targetId
-                                                 success:^(RCDiscussion *discussion) {
-                                                     weakSelf.listingUserIdList = [discussion.memberIdList copy];
-                                                 }
-                                                   error:^(RCErrorCode status){
-                                                   }];
-            
-        } else if (conversationType == ConversationType_GROUP) {
+        if (conversationType == ConversationType_GROUP) {
             if ([RCIM sharedRCIM].groupMemberDataSource &&
                 [[RCIM sharedRCIM].groupMemberDataSource respondsToSelector:@selector(getAllMembersOfGroup:result:)]) {
                 [[RCIM sharedRCIM].groupMemberDataSource getAllMembersOfGroup:self.targetId
@@ -62,13 +55,13 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
                                                                            RCLogI(@"get the members success");
                                                                        }];
             }
-        }else{
+        } else {
             self.listingUserIdList = [NSMutableArray arrayWithArray:existUserIdList];
         }
         self.existUserIdList = existUserIdList;
         self.selectUserIds = [[NSMutableArray alloc] init];
         self.successBlock = successBlock;
-        
+
         [[NSNotificationCenter defaultCenter] addObserver:self
                                                  selector:@selector(onUserInfoUpdate:)
                                                      name:RCKitDispatchUserInfoUpdateNotification
@@ -79,7 +72,7 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
 
 - (void)setListingUserIdList:(NSArray *)listingUserIdList {
     _listingUserIdList = listingUserIdList;
-    
+
     _resultUserIdList = [NSMutableArray arrayWithArray:listingUserIdList];
     __weak typeof(self) weakSelf = self;
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -89,28 +82,44 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    
+
     self.definesPresentationContext = YES;
     self.tableView.backgroundColor = [UIColor whiteColor];
     self.tableView.contentInset = UIEdgeInsetsMake(0, 0, 49.0, 0);
-    self.tableView.tintColor = [UIColor colorWithRed:58/255.0 green:145/255.0 blue:243/255.0 alpha:1/1.0];
+    self.tableView.tintColor = [UIColor colorWithRed:58 / 255.0 green:145 / 255.0 blue:243 / 255.0 alpha:1 / 1.0];
     self.tableView.tableFooterView = [[UIView alloc] init];
     self.tableView.backgroundColor = dynamic_color(0xf0f0f6, 0x000000);
-    self.tableView.separatorColor = dynamic_color(0xdfdfdf, 0x1a1a1a);
+    self.tableView.separatorColor = dynamic_color(0xE3E5E6, 0x272727);
+    NSInteger versionChecker = [RCCallKitUtility compareVersion:[UIDevice currentDevice].systemVersion toVersion:@"15.0"];
+    if (versionChecker >= 0) {
+#ifdef __IPHONE_15_0
+        self.tableView.sectionHeaderTopPadding = 0;
+#endif
+    }
+
     
     __weak RCCallSelectMemberViewController *weakVC = self;
-    _toolBar = [[RCCallToolBar alloc] initWithFrame:CGRectMake(0, UIScreen.mainScreen.bounds.size.height - 49.0 - RCCallExtraSpace, self.view.frame.size.width, 49.0 + RCCallExtraSpace) withBlock:^{
-        [weakVC done];
-    }];
-    
-    _toolBar.numberLabel.text = [NSString stringWithFormat:@"%@ %zi %@",NSLocalizedStringFromTable(@"bottom_result_view_choosed_person_prefix", @"RongCloudKit", nil),  self.selectUserIds.count, NSLocalizedStringFromTable(@"bottom_result_view_choosed_person_subfix", @"RongCloudKit", nil)];
-    _toolBar.numberLabel.textColor = [UIColor colorWithRed:168/255.0 green:168/255.0 blue:168/255.0 alpha:1/1.0];
-    
+    _toolBar = [[RCCallToolBar alloc]
+        initWithFrame:CGRectMake(0, UIScreen.mainScreen.bounds.size.height - 49.0 - RCCallExtraSpace,
+                                 self.view.frame.size.width, 49.0 + RCCallExtraSpace)
+            withBlock:^{
+                [weakVC done];
+            }];
+
+    _toolBar.numberLabel.text =
+        [NSString stringWithFormat:@"%@ %zi %@", RCCallKitLocalizedString(@"bottom_result_view_choosed_person_prefix"),
+                                   self.selectUserIds.count + 1,
+                                   RCCallKitLocalizedString(@"bottom_result_view_choosed_person_subfix")];
+    _toolBar.numberLabel.textColor = [UIColor colorWithRed:168 / 255.0
+                                                     green:168 / 255.0
+                                                      blue:168 / 255.0
+                                                     alpha:1 / 1.0];
+
     [self.navigationController.view addSubview:_toolBar];
     [self.navigationController.view bringSubviewToFront:_toolBar];
     _toolBar.confirmButton.enabled = NO;
-    
-    UIView* backgroundView = [[UIView alloc] init];
+
+    UIView *backgroundView = [[UIView alloc] init];
     self.tableView.backgroundView = backgroundView;
     self.searchController = [[UISearchController alloc] initWithSearchResultsController:self.resultController];
     self.searchController.searchResultsUpdater = self;
@@ -122,44 +131,61 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
         self.searchController.obscuresBackgroundDuringPresentation = YES;
     }
     self.searchController.hidesNavigationBarDuringPresentation = NO;
-    
-    self.searchController.searchBar.tintColor = [UIColor colorWithRed:22.0/255 green:161.0/255 blue:1.0/255 alpha:1];
+
+    self.searchController.searchBar.tintColor = [UIColor colorWithRed:22.0 / 255
+                                                                green:161.0 / 255
+                                                                 blue:1.0 / 255
+                                                                alpha:1];
     self.searchController.searchBar.frame = CGRectMake(0, 0, self.searchController.searchBar.frame.size.width, 44);
     self.searchController.searchBar.delegate = self;
     [self.searchController.searchBar sizeToFit];
-    self.searchController.searchBar.placeholder = @"Search";
+    self.searchController.searchBar.placeholder = RCCallKitLocalizedString(@"VoIPCall_search_placeholder");
 
-    NSInteger checker_iOS13 = [RCCallKitUtility compareVersion:[UIDevice currentDevice].systemVersion toVersion:@"13.0"];
+    NSInteger checker_iOS13 = [RCCallKitUtility compareVersion:[UIDevice currentDevice].systemVersion
+                                                     toVersion:@"13.0"];
     if (checker_iOS13 >= 0) {
 #ifdef __IPHONE_13_0
         self.searchController.searchBar.searchTextField.backgroundColor =
-        [RCKitUtility generateDynamicColor:hex_rgb(0xffffff)
-                                 darkColor:[hex_rgb(0x1c1c1e) colorWithAlphaComponent:0.6]];
+            [RCKitUtility generateDynamicColor:hex_rgb(0xffffff)
+                                     darkColor:[hex_rgb(0x1c1c1e) colorWithAlphaComponent:0.6]];
 #endif
     }
-    
+
     //设置顶部搜索栏的背景色
     self.searchController.searchBar.barTintColor = dynamic_color(0xf0f0f6, 0x000000);
 
     self.tableView.tableHeaderView = self.searchController.searchBar;
     self.tableView.tableFooterView = [[UIView alloc] initWithFrame:CGRectZero];
-    
-    [self.navigationItem setTitle:NSLocalizedStringFromTable(@"VoIPCallSelectMember", @"RongCloudKit", nil) ];
-    
-    UIBarButtonItem *leftBarButtonItem =
-    [[UIBarButtonItem alloc] initWithTitle:NSLocalizedStringFromTable(@"Cancel", @"RongCloudKit", nil)
-                                     style:UIBarButtonItemStylePlain
-                                    target:self
-                                    action:@selector(cancel:)];
+
+    [self.navigationItem setTitle:RCCallKitLocalizedString(@"VoIPCallSelectMember")];
+
+    UIBarButtonItem *leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:RCCallKitLocalizedString(@"Cancel")
+                                                                          style:UIBarButtonItemStylePlain
+                                                                         target:self
+                                                                         action:@selector(cancel:)];
     self.navigationItem.leftBarButtonItem = leftBarButtonItem;
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    self.toolBar.frame = CGRectMake(0, UIScreen.mainScreen.bounds.size.height - 49.0 - RCCallExtraSpace,
+                                    self.view.frame.size.width, 49.0 + RCCallExtraSpace);
+    NSInteger versionChecker = [RCCallKitUtility compareVersion:[UIDevice currentDevice].systemVersion toVersion:@"15.0"];
+    if (versionChecker >= 0) {
+#ifdef __IPHONE_15_0
+        UINavigationBarAppearance *appearance = [UINavigationBarAppearance new];
+        [appearance configureWithOpaqueBackground];
+        self.navigationController.navigationBar.scrollEdgeAppearance = appearance;
+        self.navigationController.navigationBar.standardAppearance = appearance;
+#endif
+    }
 }
 
 - (UIStatusBarStyle)preferredStatusBarStyle {
     UIViewController *rootVC = [self.navigationController presentingViewController];
     if ([rootVC isKindOfClass:[RCCallBaseViewController class]]) {
         return UIStatusBarStyleLightContent;
-    }
-    else{
+    } else {
         return UIStatusBarStyleDefault;
     }
 }
@@ -168,7 +194,7 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
     UIViewController *rootVC = [self.navigationController presentingViewController];
     if ([rootVC isKindOfClass:[RCCallBaseViewController class]]) {
         [self.navigationController dismissViewControllerAnimated:YES completion:nil];
-    }else{
+    } else {
         [[RCCall sharedRCCall] dismissCallViewController:self.navigationController];
     }
 }
@@ -177,37 +203,29 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
     UIViewController *rootVC = [self.navigationController presentingViewController];
     if ([rootVC isKindOfClass:[RCCallBaseViewController class]]) {
         [self.navigationController dismissViewControllerAnimated:YES completion:nil];
-    }else{
+    } else {
         [[RCCall sharedRCCall] dismissCallViewController:self.navigationController];
     }
-    
+
     if (self.successBlock && (self.selectUserIds.count > 0)) {
         self.successBlock(self.selectUserIds);
     }
 }
 
-- (UIImage*)imageFromColor:(UIColor*)color size:(CGSize)size
-{
-    CGRect rect=CGRectMake(0.0f, 0.0f, size.width,size.height);
-    UIGraphicsBeginImageContext(size);//创建图片
-    CGContextRef context = UIGraphicsGetCurrentContext();//创建图片上下文
-    CGContextSetFillColorWithColor(context, [color CGColor]);//设置当前填充颜色的图形上下文
-    CGContextFillRect(context, rect);//填充颜色
-    
+- (UIImage *)imageFromColor:(UIColor *)color size:(CGSize)size {
+    CGRect rect = CGRectMake(0.0f, 0.0f, size.width, size.height);
+    UIGraphicsBeginImageContext(size);                         //创建图片
+    CGContextRef context = UIGraphicsGetCurrentContext();      //创建图片上下文
+    CGContextSetFillColorWithColor(context, [color CGColor]);  //设置当前填充颜色的图形上下文
+    CGContextFillRect(context, rect);                          //填充颜色
+
     UIImage *theImage = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
     return theImage;
 }
 
 - (void)loadErrorAlert:(NSString *)title {
-    UIAlertAction *okAction = [UIAlertAction actionWithTitle:NSLocalizedStringFromTable(@"OK", @"RongCloudKit", nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-    }];
-    
-    UIAlertController *controler = [UIAlertController alertControllerWithTitle:title message:nil preferredStyle:UIAlertControllerStyleAlert];
-    [controler addAction:okAction];
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self presentViewController:controler animated:YES completion:^{}];
-    });
+    [RCAlertView showAlertController:title message:nil cancelTitle:RCCallKitLocalizedString(@"OK")  inViewController:self];
 }
 
 #pragma mark - UITableViewDataSource
@@ -220,15 +238,15 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
     static NSString *reusableSearchID = @"RongVoIPSelectMembersCellsId";
     NSString *resuseID = tableView == self.tableView ? reusableID : reusableSearchID;
     RCCallSelectingMemberCell *cell = [self.tableView dequeueReusableCellWithIdentifier:resuseID];
-    
+
     if (self.resultUserIdList.count != self.listingUserIdList.count) {
         cell = [self.tableView dequeueReusableCellWithIdentifier:reusableSearchID];
     }
     if (!cell) {
         cell = [[RCCallSelectingMemberCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:reusableID];
     }
-    cell.tintColor =  [UIColor colorWithRed:58/255.0 green:145/255.0 blue:243/255.0 alpha:1/1.0];
-    
+    cell.tintColor = [UIColor colorWithRed:58 / 255.0 green:145 / 255.0 blue:243 / 255.0 alpha:1 / 1.0];
+
     NSString *userId = self.resultUserIdList[indexPath.row];
     if ([self.existUserIdList containsObject:userId]) {
         [cell.selectedImageView setImage:[RCCallKitUtility imageFromVoIPBundle:@"voip/deselect.png"]];
@@ -240,7 +258,7 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
     RCUserInfo *userInfo;
     if (self.conversationType == ConversationType_GROUP) {
         userInfo = [[RCUserInfoCacheManager sharedManager] getUserInfo:userId inGroupId:self.targetId];
-    }else{
+    } else {
         userInfo = [[RCUserInfoCacheManager sharedManager] getUserInfo:userId];
     }
     if (userInfo) {
@@ -250,7 +268,7 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
         [cell.headerImageView setPlaceholderImage:[RCCallKitUtility getDefaultPortraitImage]];
         [cell.nameLabel setText:userId];
     }
-    
+
     return cell;
 }
 
@@ -258,8 +276,7 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
     return 55.0;
 }
 
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
-{
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     NSString *userId = self.resultUserIdList[indexPath.row];
     if (![self.existUserIdList containsObject:userId]) {
         if ([self.selectUserIds containsObject:userId]) {
@@ -268,29 +285,25 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
             [self.selectUserIds addObject:userId];
         }
     }
-    
+
     if ((self.selectUserIds.count + self.existUserIdList.count > [RCCall sharedRCCall].maxMultiAudioCallUserNumber) &&
         self.mediaType == RCCallMediaAudio) {
-        [self loadErrorAlert:[NSString stringWithFormat:NSLocalizedStringFromTable(@"VoIPAudioCallMaxNumSelectMember",
-                                                                                   @"RongCloudKit", nil),
-                              [RCCall sharedRCCall].maxMultiAudioCallUserNumber]];
+        [self loadErrorAlert:[NSString stringWithFormat:RCCallKitLocalizedString(@"VoIPAudioCallMaxNumSelectMember"),
+                                                        [RCCall sharedRCCall].maxMultiAudioCallUserNumber]];
         [self.selectUserIds removeObject:userId];
     } else if ((self.selectUserIds.count + self.existUserIdList.count >
                 [RCCall sharedRCCall].maxMultiVideoCallUserNumber) &&
                self.mediaType == RCCallMediaVideo) {
-        [self loadErrorAlert:[NSString stringWithFormat:NSLocalizedStringFromTable(@"VoIPVideoCallMaxNumSelectMember",
-                                                                                   @"RongCloudKit", nil),
-                              [RCCall sharedRCCall].maxMultiVideoCallUserNumber]];
+        [self loadErrorAlert:[NSString stringWithFormat:RCCallKitLocalizedString(@"VoIPVideoCallMaxNumSelectMember"),
+                                                        [RCCall sharedRCCall].maxMultiVideoCallUserNumber]];
         [self.selectUserIds removeObject:userId];
     }
-    
+
     if (!_searchController.isActive) {
         [UIView performWithoutAnimation:^{
-            [self.tableView reloadRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationNone];
-            
+            [self.tableView reloadRowsAtIndexPaths:@[ indexPath ] withRowAnimation:UITableViewRowAnimationNone];
         }];
-    }else
-    {
+    } else {
         RCCallSelectingMemberCell *cell = (RCCallSelectingMemberCell *)[tableView cellForRowAtIndexPath:indexPath];
         NSString *userId = self.resultUserIdList[indexPath.row];
         if ([self.existUserIdList containsObject:userId]) {
@@ -300,18 +313,20 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
         } else {
             [cell.selectedImageView setImage:[RCCallKitUtility imageFromVoIPBundle:@"voip/unselected.png"]];
         }
-        
+
         [tableView deselectRowAtIndexPath:indexPath animated:NO];
     }
 
-    _toolBar.numberLabel.text = [NSString stringWithFormat:@"%@ %zi %@",NSLocalizedStringFromTable(@"bottom_result_view_choosed_person_prefix", @"RongCloudKit", nil),  self.selectUserIds.count, NSLocalizedStringFromTable(@"bottom_result_view_choosed_person_subfix", @"RongCloudKit", nil)];
-    
+    _toolBar.numberLabel.text =
+        [NSString stringWithFormat:@"%@ %zi %@", RCCallKitLocalizedString(@"bottom_result_view_choosed_person_prefix"),
+                                   self.selectUserIds.count + 1,
+                                   RCCallKitLocalizedString(@"bottom_result_view_choosed_person_subfix")];
+
     if (self.selectUserIds.count > 0) {
         _toolBar.numberLabel.textColor = dynamic_color(0x3A91F3, 0x007acc);
         _toolBar.confirmButton.enabled = YES;
-    }
-    else {
-        _toolBar.numberLabel.textColor = dynamic_color(0xA8A8A8,0x666666);
+    } else {
+        _toolBar.numberLabel.textColor = dynamic_color(0xA8A8A8, 0x666666);
         _toolBar.confirmButton.enabled = NO;
     }
 }
@@ -323,7 +338,6 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
 }
 
 - (void)didPresentSearchController:(UISearchController *)searchController {
-    
 }
 
 - (void)willDismissSearchController:(UISearchController *)searchController {
@@ -336,11 +350,9 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
 }
 
 - (void)didDismissSearchController:(UISearchController *)searchController {
-    
 }
 
 - (void)presentSearchController:(UISearchController *)searchController {
-    
 }
 
 #pragma mark - UISearchResultsUpdating
@@ -353,16 +365,18 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
 - (void)onUserInfoUpdate:(NSNotification *)notification {
     NSDictionary *userInfoDic = notification.object;
     NSString *updateUserId = userInfoDic[@"userId"];
-    
+
     for (NSString *userId in self.resultUserIdList) {
         if ([updateUserId isEqualToString:userId]) {
             __weak typeof(self) weakSelf = self;
             dispatch_async(dispatch_get_main_queue(), ^{
-                NSIndexPath *index =
-                [NSIndexPath indexPathForRow:[weakSelf.resultUserIdList indexOfObject:userId] inSection:0];
-                
-                [weakSelf.tableView reloadRowsAtIndexPaths:@[ index ]
-                                          withRowAnimation:UITableViewRowAnimationAutomatic];
+                NSIndexPath *index = [NSIndexPath indexPathForRow:[weakSelf.resultUserIdList indexOfObject:userId]
+                                                        inSection:0];
+                UITableViewCell *cell = [weakSelf.tableView cellForRowAtIndexPath:index];
+                if (cell) {
+                    [weakSelf.tableView reloadRowsAtIndexPaths:@[ index ]
+                                              withRowAnimation:UITableViewRowAnimationAutomatic];
+                }
             });
             return;
         }
@@ -370,14 +384,12 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
 }
 
 #pragma mark - UISearchBarDelegate
-- (void)searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)searchText
-{
+- (void)searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)searchText {
     self.searchText = searchText;
     [self searchTexts];
 }
 
-- (void)searchBarCancelButtonClicked:(UISearchBar *)searchBar
-{
+- (void)searchBarCancelButtonClicked:(UISearchBar *)searchBar {
     self.searchText = @"";
     [self searchTexts];
 }
@@ -404,18 +416,16 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
 }
 
 #pragma mark - Private
-- (void)searchTexts
-{
+- (void)searchTexts {
     if ([self.searchText isEqualToString:@""]) {
         self.resultUserIdList = [NSMutableArray arrayWithArray:self.listingUserIdList];
-    }else
-    {
+    } else {
         self.resultUserIdList = [NSMutableArray array];
         for (NSString *userId in self.listingUserIdList) {
             RCUserInfo *userInfo;
             if (self.conversationType == ConversationType_GROUP) {
                 userInfo = [[RCUserInfoCacheManager sharedManager] getUserInfo:userId inGroupId:self.targetId];
-            }else{
+            } else {
                 userInfo = [[RCUserInfoCacheManager sharedManager] getUserInfo:userId];
             }
             if ([userInfo.name containsString:_searchText]) {

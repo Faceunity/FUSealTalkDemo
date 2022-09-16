@@ -63,7 +63,7 @@
 - (void)setModel:(RCDFriendInfo *)user {
     self.currentUserInfo = user;
     if (user) {
-        self.nameLabel.text = user.name;
+        self.nameLabel.text = [RCKitUtility getDisplayName:user];
         if ([user.portraitUri isEqualToString:@""]) {
             UIImage *portrait = [DefaultPortraitView portraitView:user.userId name:user.name];
             self.portraitImageView.image = portrait;
@@ -175,8 +175,8 @@
 - (UIImageView *)portraitImageView {
     if (!_portraitImageView) {
         _portraitImageView = [[UIImageView alloc] init];
-        if ([RCIM sharedRCIM].globalConversationAvatarStyle == RC_USER_AVATAR_CYCLE &&
-            [RCIM sharedRCIM].globalMessageAvatarStyle == RC_USER_AVATAR_CYCLE) {
+        if (RCKitConfigCenter.ui.globalConversationAvatarStyle == RC_USER_AVATAR_CYCLE &&
+            RCKitConfigCenter.ui.globalMessageAvatarStyle == RC_USER_AVATAR_CYCLE) {
             _portraitImageView.layer.cornerRadius = 18.f;
         } else {
             _portraitImageView.layer.cornerRadius = 5.f;

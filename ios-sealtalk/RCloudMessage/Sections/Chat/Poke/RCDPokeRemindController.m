@@ -137,7 +137,7 @@
         [RCDUtilities getGroupUserDisplayInfo:self.message.senderUserId
                                       groupId:self.message.targetId
                                        result:^(RCUserInfo *user) {
-                                           weakSelf.userNameLabel.text = user.name;
+                                           weakSelf.userNameLabel.text = [RCKitUtility getDisplayName:user];
                                            [weakSelf.headerView
                                                sd_setImageWithURL:[NSURL URLWithString:user.portraitUri]
                                                  placeholderImage:[UIImage imageNamed:@"contact"]];
@@ -146,7 +146,7 @@
         __weak typeof(self) weakSelf = self;
         [RCDUtilities getUserDisplayInfo:self.message.senderUserId
                                 complete:^(RCUserInfo *user) {
-                                    weakSelf.userNameLabel.text = user.name;
+                                    weakSelf.userNameLabel.text = [RCKitUtility getDisplayName:user];
                                     [weakSelf.headerView sd_setImageWithURL:[NSURL URLWithString:user.portraitUri]
                                                            placeholderImage:[UIImage imageNamed:@"contact"]];
                                 }];
@@ -272,9 +272,14 @@
 - (UIImageView *)headerView {
     if (!_headerView) {
         _headerView = [[UIImageView alloc] init];
-        _headerView.layer.cornerRadius = 6.f;
         _headerView.layer.masksToBounds = YES;
         _headerView.contentMode = UIViewContentModeScaleAspectFill;
+        if (RCKitConfigCenter.ui.globalConversationAvatarStyle == RC_USER_AVATAR_CYCLE &&
+            RCKitConfigCenter.ui.globalMessageAvatarStyle == RC_USER_AVATAR_CYCLE) {
+            _headerView.layer.cornerRadius = 65.f;
+        } else {
+            _headerView.layer.cornerRadius = 6.f;
+        }
     }
     return _headerView;
 }

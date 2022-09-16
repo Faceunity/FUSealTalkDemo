@@ -12,7 +12,6 @@
 #import "UIColor+RCColor.h"
 #import "RCDQRCodeController.h"
 #import <RongIMKit/RongIMKit.h>
-#import "RCDWeChatManager.h"
 #import "RCDSearchBar.h"
 #import "RCDSearchFriendController.h"
 #import "RCDScanQRCodeController.h"
@@ -24,8 +23,7 @@
 #import "RCDTableView.h"
 #define RCDAddFriendListCellIdentifier @"RCDAddFriendListCell"
 
-@interface RCDAddFriendListViewController () <UITableViewDelegate, UITableViewDataSource, RCDWeChatManagerDelegate,
-                                              UISearchBarDelegate, RCDMyQRCodeViewDelegate>
+@interface RCDAddFriendListViewController () <UITableViewDelegate, UITableViewDataSource, UISearchBarDelegate, RCDMyQRCodeViewDelegate>
 
 @property (nonatomic, strong) RCDSearchBar *searchBar;
 
@@ -55,7 +53,7 @@
 
 #pragma mark - UITableViewDelegate
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return 4;
+    return self.imageArray.count;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -74,6 +72,10 @@
     return 49.f;
 }
 
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section{
+    return CGFLOAT_MIN;
+}
+
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     switch (indexPath.row) {
     case 0: {
@@ -85,12 +87,6 @@
         [self.navigationController pushViewController:qrcodeVC animated:YES];
     } break;
     case 2: {
-        [self showAlert:RCDLocalizedString(@"InviteWeChatFriend")
-                   message:RCDLocalizedString(@"ToInviteWeChatFriend")
-            cancelBtnTitle:RCDLocalizedString(@"cancel")
-             otherBtnTitle:RCDLocalizedString(@"ConfirmBtnTitle")];
-    } break;
-    case 3: {
         RCDSelectAddressBookViewController *vc = [[RCDSelectAddressBookViewController alloc] init];
         [self.navigationController pushViewController:vc animated:YES];
     } break;
@@ -104,15 +100,6 @@
     RCDSearchFriendController *searchFirendVC = [[RCDSearchFriendController alloc] init];
     [self.navigationController pushViewController:searchFirendVC animated:YES];
     return NO;
-}
-
-#pragma mark - RCDWeChatManagerDelegate
-- (void)wxSharedSucceed {
-    [self.view showHUDMessage:RCDLocalizedString(@"ShareSuccess")];
-}
-
-- (void)wxSharedFailure {
-    [self.view showHUDMessage:RCDLocalizedString(@"ShareFailure")];
 }
 
 #pragma mark - RCDMyQRCodeViewDelegate
@@ -165,47 +152,9 @@
 }
 
 - (void)setupData {
-    self.imageArray = @[ @"add_phonebook", @"add_scan", @"add_wechat", @"add_invite_phonebook" ];
-    self.titleArray = @[ @"Phonebook_Title", @"Scan_Title", @"Wx_Title", @"Invite_Phonebook_Title" ];
-    self.detailArray = @[ @"Phonebook_Detail", @"Scan_Detail", @"Wx_Detail", @"Invite_Phonebook_Detail" ];
-    [RCDWeChatManager sharedManager].delegate = self;
-}
-
-- (void)showAlert:(NSString *)title
-          message:(NSString *)message
-   cancelBtnTitle:(NSString *)cBtnTitle
-    otherBtnTitle:(NSString *)oBtnTitle {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        UIAlertController *alertController = [UIAlertController alertControllerWithTitle:title
-                                                                                 message:message
-                                                                          preferredStyle:UIAlertControllerStyleAlert];
-        [alertController
-            addAction:[UIAlertAction actionWithTitle:cBtnTitle style:UIAlertActionStyleDefault handler:nil]];
-        if (oBtnTitle) {
-            [alertController addAction:[UIAlertAction actionWithTitle:oBtnTitle
-                                                                style:UIAlertActionStyleDefault
-                                                              handler:^(UIAlertAction *_Nonnull action) {
-                                                                  [self shareUrlToWeChat];
-                                                              }]];
-        }
-        [self presentViewController:alertController animated:YES completion:nil];
-    });
-}
-
-- (void)shareUrlToWeChat {
-    UIImage *logoImage = [UIImage imageNamed:@"57x57_logo"];
-    if ([RCDWeChatManager weChatCanShared]) {
-        [[RCDWeChatManager sharedManager] sendLinkContent:RCDQRCodeContentInfoUrl
-                                                    title:RCDLocalizedString(@"WXShare_RC_Title")
-                                              description:RCDLocalizedString(@"WXShare_RC_Detail")
-                                               thumbImage:logoImage
-                                                  atScene:WXSceneSession];
-    } else {
-        [self showAlert:nil
-                   message:RCDLocalizedString(@"NotInstalledWeChat")
-            cancelBtnTitle:RCDLocalizedString(@"ConfirmBtnTitle")
-             otherBtnTitle:nil];
-    }
+    self.imageArray = @[ @"add_phonebook", @"add_scan", @"add_invite_phonebook" ];
+    self.titleArray = @[ @"Phonebook_Title", @"Scan_Title", @"Invite_Phonebook_Title" ];
+    self.detailArray = @[ @"Phonebook_Detail", @"Scan_Detail", @"Invite_Phonebook_Detail" ];
 }
 
 #pragma mark - Target Action
@@ -224,7 +173,7 @@
     if (!_searchBar) {
         _searchBar = [[RCDSearchBar alloc] init];
         _searchBar.delegate = self;
-        _searchBar.placeholder = RCDLocalizedString(@"PhoneOrSealTalkNumber");
+        _searchBar.placeholder = RCDLocalizedString(@"PhoneOrSTNumber");
     }
     return _searchBar;
 }
@@ -264,6 +213,7 @@
         _tableView = [[RCDTableView alloc] init];
         _tableView.delegate = self;
         _tableView.dataSource = self;
+        _tableView.tableFooterView = [UIView new];
         [_tableView setSectionIndexColor:[UIColor darkGrayColor]];
         _tableView.scrollEnabled = NO;
     }

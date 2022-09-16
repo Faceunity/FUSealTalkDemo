@@ -29,9 +29,13 @@
 
 @property (nonatomic, strong) UITextField *pushDataTF;
 
+@property (nonatomic, strong) UITextField *imageUrlTF;
+
 @property (nonatomic, strong) UITextField *templateIdTF;
 
 @property (nonatomic, strong) UITextField *threadIdTF;
+
+@property (nonatomic, strong) UITextField *categoryTF;
 
 @property (nonatomic, strong) UITextField *apnsCollapseIdTF;
 
@@ -42,6 +46,18 @@
 @property (nonatomic, strong) UITextField *channelIdOPPOTF;
 
 @property (nonatomic, strong) UITextField *typeVivoTF;
+
+@property (nonatomic, strong) UITextField *fcmTF;
+
+@property (nonatomic, strong) UITextField *fcmUrlTF;
+
+@property (nonatomic, strong) UITextField *hwLvel;
+
+@property (nonatomic, strong) UITextField *hwImgUrlTF;
+
+@property (nonatomic, strong) UITextField *miImgUrlTF;
+
+@property (nonatomic, strong) UITextField *fcmChannelIdTF;
 
 @property (nonatomic, strong) RCMessagePushConfig *pushConfig;
 
@@ -75,14 +91,22 @@
     [self.contentView addSubview:self.pushTitleTF];
     [self.contentView addSubview:self.pushContentTF];
     [self.contentView addSubview:self.pushDataTF];
+    [self.contentView addSubview:self.imageUrlTF];
     [self.contentView addSubview:self.templateIdTF];
     [self.contentView addSubview:self.threadIdTF];
+    [self.contentView addSubview:self.categoryTF];
     [self.contentView addSubview:self.apnsCollapseIdTF];
     [self.contentView addSubview:self.channelIdMiTF];
     [self.contentView addSubview:self.channelIdHWTF];
     [self.contentView addSubview:self.channelIdOPPOTF];
     [self.contentView addSubview:self.typeVivoTF];
-    
+    [self.contentView addSubview:self.fcmTF];
+    [self.contentView addSubview:self.fcmUrlTF];
+    [self.contentView addSubview:self.hwLvel];
+    [self.contentView addSubview:self.hwImgUrlTF];
+    [self.contentView addSubview:self.miImgUrlTF];
+    [self.contentView addSubview:self.fcmChannelIdTF];
+
     [self.scrollView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.left.right.bottom.equalTo(self.view);
     }];
@@ -117,8 +141,13 @@
         make.height.left.right.equalTo(self.disableTitleBtn);
     }];
     
-    [self.pushDataTF mas_makeConstraints:^(MASConstraintMaker *make) {
+    [self.imageUrlTF mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.equalTo(self.pushContentTF.mas_bottom).offset(10);
+        make.height.left.right.equalTo(self.disableTitleBtn);
+    }];
+    
+    [self.pushDataTF mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.equalTo(self.imageUrlTF.mas_bottom).offset(10);
         make.height.left.right.equalTo(self.disableTitleBtn);
     }];
     
@@ -132,8 +161,13 @@
         make.height.left.right.equalTo(self.disableTitleBtn);
     }];
     
-    [self.apnsCollapseIdTF mas_makeConstraints:^(MASConstraintMaker *make) {
+    [self.categoryTF mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.equalTo(self.threadIdTF.mas_bottom).offset(10);
+        make.height.left.right.equalTo(self.disableTitleBtn);
+    }];
+    
+    [self.apnsCollapseIdTF mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.equalTo(self.categoryTF.mas_bottom).offset(10);
         make.height.left.right.equalTo(self.disableTitleBtn);
     }];
     
@@ -159,6 +193,36 @@
     
     [self.typeVivoTF mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.equalTo(self.channelIdOPPOTF.mas_bottom).offset(10);
+        make.height.left.right.equalTo(self.disableTitleBtn);
+    }];
+    
+    [self.fcmTF mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.equalTo(self.typeVivoTF.mas_bottom).offset(10);
+        make.height.left.right.equalTo(self.disableTitleBtn);
+    }];
+
+    [self.fcmUrlTF mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.equalTo(self.fcmTF.mas_bottom).offset(10);
+        make.height.left.right.equalTo(self.disableTitleBtn);
+    }];
+    
+    [self.hwImgUrlTF mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.equalTo(self.fcmUrlTF.mas_bottom).offset(10);
+        make.height.left.right.equalTo(self.disableTitleBtn);
+    }];
+    
+    [self.miImgUrlTF mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.equalTo(self.hwImgUrlTF.mas_bottom).offset(10);
+        make.height.left.right.equalTo(self.disableTitleBtn);
+    }];
+    
+    [self.fcmChannelIdTF mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.equalTo(self.miImgUrlTF.mas_bottom).offset(10);
+        make.height.left.right.equalTo(self.disableTitleBtn);
+    }];
+    
+    [self.hwLvel mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.equalTo(self.fcmChannelIdTF.mas_bottom).offset(10);
         make.height.left.right.equalTo(self.disableTitleBtn);
         make.bottom.equalTo(self.contentView);
     }];
@@ -188,14 +252,22 @@
         self.notificationIdTF.text = self.pushConfig.androidConfig.notificationId;
         self.pushTitleTF.text = self.pushConfig.pushTitle;
         self.pushContentTF.text = self.pushConfig.pushContent;
+        self.imageUrlTF.text = self.pushConfig.iOSConfig.richMediaUri;
         self.pushDataTF.text = self.pushConfig.pushData;
         self.templateIdTF.text = self.pushConfig.templateId;
         self.threadIdTF.text = self.pushConfig.iOSConfig.threadId;
+        self.categoryTF.text = self.pushConfig.iOSConfig.category;
         self.apnsCollapseIdTF.text = self.pushConfig.iOSConfig.apnsCollapseId;
         self.channelIdMiTF.text = self.pushConfig.androidConfig.channelIdMi;
         self.channelIdHWTF.text = self.pushConfig.androidConfig.channelIdHW;
         self.channelIdOPPOTF.text = self.pushConfig.androidConfig.channelIdOPPO;
         self.typeVivoTF.text = self.pushConfig.androidConfig.typeVivo;
+        self.fcmTF.text = self.pushConfig.androidConfig.fcmCollapseKey;
+        self.fcmUrlTF.text = self.pushConfig.androidConfig.fcmImageUrl;
+        self.hwLvel.text = self.pushConfig.androidConfig.importanceHW;
+        self.hwImgUrlTF.text = self.pushConfig.androidConfig.hwImageUrl;
+        self.miImgUrlTF.text = self.pushConfig.androidConfig.miLargeIconUrl;
+        self.fcmChannelIdTF.text = self.pushConfig.androidConfig.fcmChannelId;
     }
     
     if (self.config) {
@@ -225,13 +297,21 @@
     pushConfig.pushData = self.pushDataTF.text;
     pushConfig.templateId = self.templateIdTF.text;
     pushConfig.iOSConfig.threadId = self.threadIdTF.text;
+    pushConfig.iOSConfig.category = self.categoryTF.text;
     pushConfig.iOSConfig.apnsCollapseId = self.apnsCollapseIdTF.text;
+    pushConfig.iOSConfig.richMediaUri = self.imageUrlTF.text;
     pushConfig.androidConfig.notificationId = self.notificationIdTF.text;
     pushConfig.androidConfig.channelIdMi = self.channelIdMiTF.text;
     pushConfig.androidConfig.channelIdHW = self.channelIdHWTF.text;
     pushConfig.androidConfig.channelIdOPPO = self.channelIdOPPOTF.text;
     pushConfig.androidConfig.typeVivo = self.typeVivoTF.text;
+    pushConfig.androidConfig.fcmCollapseKey = self.fcmTF.text;
+    pushConfig.androidConfig.fcmImageUrl = self.fcmUrlTF.text;
+    pushConfig.androidConfig.importanceHW = self.hwLvel.text;
     pushConfig.forceShowDetailContent = self.forceShowDetailBtn.selected;
+    pushConfig.androidConfig.hwImageUrl = self.hwImgUrlTF.text;
+    pushConfig.androidConfig.miLargeIconUrl= self.miImgUrlTF.text;
+    pushConfig.androidConfig.fcmChannelId = self.fcmChannelIdTF.text;
     
     [self saveToUserDefaults:pushConfig];
     
@@ -254,12 +334,21 @@
     
     [[NSUserDefaults standardUserDefaults] setObject:pushConfig.iOSConfig.threadId forKey:@"pushConfig-threadId"];
     [[NSUserDefaults standardUserDefaults] setObject:pushConfig.iOSConfig.apnsCollapseId forKey:@"pushConfig-apnsCollapseId"];
+    [[NSUserDefaults standardUserDefaults] setObject:pushConfig.iOSConfig.richMediaUri forKey:@"pushConfig-richMediaUri"];
+    [[NSUserDefaults standardUserDefaults] setObject:pushConfig.iOSConfig.category forKey:@"pushConfig-category"];
+
     
     [[NSUserDefaults standardUserDefaults] setObject:pushConfig.androidConfig.notificationId forKey:@"pushConfig-android-id"];
     [[NSUserDefaults standardUserDefaults] setObject:pushConfig.androidConfig.channelIdMi forKey:@"pushConfig-android-mi"];
     [[NSUserDefaults standardUserDefaults] setObject:pushConfig.androidConfig.channelIdHW forKey:@"pushConfig-android-hw"];
     [[NSUserDefaults standardUserDefaults] setObject:pushConfig.androidConfig.channelIdOPPO forKey:@"pushConfig-android-oppo"];
     [[NSUserDefaults standardUserDefaults] setObject:pushConfig.androidConfig.typeVivo forKey:@"pushConfig-android-vivo"];
+    [[NSUserDefaults standardUserDefaults] setObject:pushConfig.androidConfig.fcmCollapseKey forKey:@"pushConfig-android-fcm"];
+    [[NSUserDefaults standardUserDefaults] setObject:pushConfig.androidConfig.fcmImageUrl forKey:@"pushConfig-android-fcmImageUrl"];
+    [[NSUserDefaults standardUserDefaults] setObject:pushConfig.androidConfig.importanceHW forKey:@"pushConfig-android-importanceHW"];
+    [[NSUserDefaults standardUserDefaults] setObject:pushConfig.androidConfig.hwImageUrl forKey:@"pushConfig-android-hwImageUrl"];
+    [[NSUserDefaults standardUserDefaults] setObject:pushConfig.androidConfig.miLargeIconUrl forKey:@"pushConfig-android-miLargeIconUrl"];
+    [[NSUserDefaults standardUserDefaults] setObject:pushConfig.androidConfig.fcmChannelId forKey:@"pushConfig-android-fcmChannelId"];
 }
 
 - (void)saveConfigToUserDefaults:(RCMessageConfig *)config {
@@ -277,13 +366,26 @@
     
     self.pushConfig.iOSConfig.threadId = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-threadId"];
     self.pushConfig.iOSConfig.apnsCollapseId = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-apnsCollapseId"];
+    self.pushConfig.iOSConfig.richMediaUri = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-richMediaUri"];
+    self.pushConfig.iOSConfig.category = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-category"];
     
     self.pushConfig.androidConfig.notificationId = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-id"];
     self.pushConfig.androidConfig.channelIdMi = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-mi"];
     self.pushConfig.androidConfig.channelIdHW = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-hw"];
     self.pushConfig.androidConfig.channelIdOPPO = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-oppo"];
     self.pushConfig.androidConfig.typeVivo = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-vivo"];
-    
+    self.pushConfig.androidConfig.fcmCollapseKey = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-fcm"];
+    self.pushConfig.androidConfig.fcmImageUrl = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-fcmImageUrl"];
+    self.pushConfig.androidConfig.hwImageUrl = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-hwImageUrl"];
+    self.pushConfig.androidConfig.miLargeIconUrl = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-miLargeIconUrl"];
+    self.pushConfig.androidConfig.fcmChannelId = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-fcmChannelId"];
+    if ([[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-importanceHW"]) {
+        self.pushConfig.androidConfig.importanceHW = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-importanceHW"];
+    }else{
+        self.pushConfig.androidConfig.importanceHW = RCImportanceHwNormal;
+
+    }
+
     self.config = [[RCMessageConfig alloc] init];
     self.config.disableNotification = [[[NSUserDefaults standardUserDefaults] objectForKey:@"config-disableNotification"] boolValue];
 }
@@ -381,6 +483,15 @@
     return _pushContentTF;
 }
 
+- (UITextField *)imageUrlTF {
+    if (!_imageUrlTF) {
+        _imageUrlTF = [[UITextField alloc] init];
+        _imageUrlTF.placeholder = @"iOS 推送图片地址";
+        _imageUrlTF.layer.borderWidth = 1;
+    }
+    return _imageUrlTF;
+}
+
 - (UITextField *)pushDataTF {
     if (!_pushDataTF) {
         _pushDataTF = [[UITextField alloc] init];
@@ -406,6 +517,15 @@
         _threadIdTF.layer.borderWidth = 1;
     }
     return _threadIdTF;
+}
+
+- (UITextField *)categoryTF {
+    if (!_categoryTF) {
+        _categoryTF = [[UITextField alloc] init];
+        _categoryTF.placeholder = @"iOS category";
+        _categoryTF.layer.borderWidth = 1;
+    }
+    return _categoryTF;
 }
 
 - (UITextField *)apnsCollapseIdTF {
@@ -461,5 +581,61 @@
     }
     return _typeVivoTF;
 }
+
+- (UITextField *)fcmTF {
+    if (!_fcmTF) {
+        _fcmTF = [[UITextField alloc] init];
+        _fcmTF.placeholder = @"FCM 分组 ID";
+        _fcmTF.layer.borderWidth = 1;
+    }
+    return _fcmTF;
+}
+
+- (UITextField *)fcmUrlTF {
+    if (!_fcmUrlTF) {
+        _fcmUrlTF = [[UITextField alloc] init];
+        _fcmUrlTF.placeholder = @"FCM 图片 Url";
+        _fcmUrlTF.layer.borderWidth = 1;
+    }
+    return _fcmUrlTF;
+}
+
+
+- (UITextField *)hwLvel {
+    if (!_hwLvel) {
+        _hwLvel = [[UITextField alloc] init];
+        _hwLvel.placeholder = @"hw推送级别";
+        _hwLvel.layer.borderWidth = 1;
+    }
+    return _hwLvel;
+}
+
+- (UITextField *)hwImgUrlTF {
+    if (!_hwImgUrlTF) {
+        _hwImgUrlTF = [[UITextField alloc] init];
+        _hwImgUrlTF.placeholder = @"hw 图片地址";
+        _hwImgUrlTF.layer.borderWidth = 1;
+    }
+    return _hwImgUrlTF;
+}
+
+- (UITextField *)miImgUrlTF {
+    if (!_miImgUrlTF) {
+        _miImgUrlTF = [[UITextField alloc] init];
+        _miImgUrlTF.placeholder = @"mi 图片地址";
+        _miImgUrlTF.layer.borderWidth = 1;
+    }
+    return _miImgUrlTF;
+}
+
+- (UITextField *)fcmChannelIdTF {
+    if (!_fcmChannelIdTF) {
+        _fcmChannelIdTF = [[UITextField alloc] init];
+        _fcmChannelIdTF.placeholder = @"FCM channelId";
+        _fcmChannelIdTF.layer.borderWidth = 1;
+    }
+    return _fcmChannelIdTF;
+}
+
 
 @end

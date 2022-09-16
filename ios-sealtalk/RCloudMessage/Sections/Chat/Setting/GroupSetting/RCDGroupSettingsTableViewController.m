@@ -24,7 +24,7 @@
 #import "UIImage+RCImage.h"
 #import "RCDIMService.h"
 #import "RCDUserListCollectionView.h"
-#import <RongCloudOpenSource/RongIMKit.h>
+#import <RongIMKit/RongIMKit.h>
 #import "RCDCommonString.h"
 #import "RCDQRCodeController.h"
 #import "RCDUploadManager.h"
@@ -106,9 +106,9 @@ static NSString *CellIdentifier = @"RCDBaseSettingTableViewCell";
     if ([title isEqualToString:RCDLocalizedString(@"mute_notifications")]) {
         [self setCurrentNotificationStatus:cell.switchButton];
     } else if ([title isEqualToString:RCDLocalizedString(@"stick_on_top")]) {
-        RCConversation *conversation =
-            [[RCIMClient sharedRCIMClient] getConversation:ConversationType_GROUP targetId:self.group.groupId];
-        cell.switchButton.on = conversation.isTop;
+        RCConversationIdentifier *identifier = [[RCConversationIdentifier alloc] initWithConversationIdentifier:ConversationType_GROUP targetId:self.group.groupId];
+        BOOL isTop = [[RCCoreClient sharedCoreClient] getConversationTopStatus:identifier];
+        cell.switchButton.on = isTop;
     } else if ([title isEqualToString:RCDLocalizedString(@"ScreenCaptureNotification")]) {
         [self setScreenCaptureSwitchStatusWithCell:cell];
     }
@@ -379,7 +379,7 @@ static NSString *CellIdentifier = @"RCDBaseSettingTableViewCell";
                                              describeTitle:[NSString
                                                                stringWithFormat:RCDLocalizedString(@"AnnouncementTime"),
                                                                                 [RCDUtilities
-                                                                                    getDataString:announce.publishTime]]
+                                                                                    getDateString:announce.publishTime]]
                                               confirmTitle:RCDLocalizedString(@"confirm")
                                                    confirm:^{
 

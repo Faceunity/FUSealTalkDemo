@@ -2,13 +2,13 @@
 //  RCCallKitExtensionModule.h
 //  RongCallKit
 //
-//  Created by 岑裕 on 16/7/2.
+//  Created by RongCloud on 16/7/2.
 //  Copyright © 2016年 Rong Cloud. All rights reserved.
 //
 
 #import <Foundation/Foundation.h>
 #import <RongCallLib/RongCallLib.h>
-#import <RongIMKit/RongIMKit.h>
+#import "RongCallKitAdaptiveHeader.h"
 
 /*!
  CallKit 插件类

@@ -2,11 +2,13 @@
 //  RCCall.mm
 //  RongCallKit
 //
-//  Created by 岑裕 on 16/3/11.
+//  Created by RongCloud on 16/3/11.
 //  Copyright © 2016年 RongCloud. All rights reserved.
 //
 
 #import "RCCall.h"
+#import <AVFoundation/AVFoundation.h>
+#import "RCCXCall.h"
 #import "RCCallAudioMultiCallViewController.h"
 #import "RCCallBaseViewController.h"
 #import "RCCallDetailMessageCell.h"
@@ -16,22 +18,41 @@
 #import "RCCallTipMessageCell.h"
 #import "RCCallVideoMultiCallViewController.h"
 #import "RCUserInfoCacheManager.h"
-#import "RCCXCall.h"
-#import <AVFoundation/AVFoundation.h>
+#import "RongCallKitAdaptiveHeader.h"
 
-#import <RongRTCLib/RongRTCLib.h>
-#import <RongCallLib/RongCallLib.h>
+#if __IPHONE_10_0
+#import <UserNotifications/UserNotifications.h>
+#endif
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 #define AlertWithoutConfirm 1000
 #define AlertWithConfirm 1001
 
+#define kActivityWindowTag 1002
+
+#ifndef dispatch_main_async_safe
+#define dispatch_main_async_safe(block)                           \
+    if (dispatch_queue_get_label(DISPATCH_CURRENT_QUEUE_LABEL) == \
+        dispatch_queue_get_label(dispatch_get_main_queue())) {    \
+        block();                                                  \
+    } else {                                                      \
+        dispatch_async(dispatch_get_main_queue(), block);         \
+    }
+#endif
+
+static NSString *const __RongCallKit__Version = @"5.2.4_opensource";
+static NSString *const __RongCallKit__Commit = @"bd48b3a9";
+static NSString *const __RongCallKit__Time = @"202207221701";
+
 @interface RCCall () <RCCallReceiveDelegate>
 
-@property(nonatomic, strong) NSMutableDictionary *alertInfoDic;
-@property(nonatomic, strong) AVAudioPlayer *audioPlayer;
-@property(nonatomic, strong) NSMutableArray *callWindows;
-@property(nonatomic, strong) NSMutableArray *locationNotificationList;
+@property (nonatomic, strong) NSMutableDictionary *alertInfoDic;
+@property (nonatomic, strong) AVAudioPlayer *audioPlayer;
+@property (nonatomic, strong) NSMutableArray *callWindows;
 @property (nonatomic, strong) NSTimer *timer;
+@property (nonatomic, strong) NSMutableDictionary *locationNotificationMap;
 
 @end
 
@@ -48,8 +69,17 @@
             pRongVoIP.maxMultiVideoCallUserNumber = 7;
             pRongVoIP.canIncomingCall = YES;
             pRongVoIP.callWindows = [[NSMutableArray alloc] init];
-            pRongVoIP.locationNotificationList = [[NSMutableArray alloc] init];
+            pRongVoIP.locationNotificationMap = [[NSMutableDictionary alloc] init];
             [pRongVoIP registerNotification];
+//RCCallKit_Delete_Start
+#if PUBLIC
+#else
+            [[RCCallClient sharedRCCallClient] setCanHangupSystemPhonecall:NO];
+            [[RCCallClient sharedRCCallClient] setApplePushKitEnable:YES];
+#endif
+            //RCCallKit_Delete_end
+            NSLog(@"callkitVersion:%@, commitId:%@, time:%@", __RongCallKit__Version, __RongCallKit__Commit,
+                  __RongCallKit__Time);
         }
     });
     return pRongVoIP;
@@ -68,13 +98,6 @@
 
 - (void)appDidBecomeActive {
     [self stopReceiveCallVibrate];
-    for (UILocalNotification *notification in self.locationNotificationList) {
-        if ([notification.userInfo[@"appData"][@"callId"] isEqualToString:self.currentCallSession.callId]) {
-            [[UIApplication sharedApplication] cancelLocalNotification:notification];
-            [self.locationNotificationList removeObject:notification];
-            break;
-        }
-    }
 }
 
 - (void)appDidResignActive {
@@ -93,10 +116,6 @@
     if ([self preCheckForStartCall:mediaType]) {
         [self checkSystemPermission:mediaType
                             success:^{
-        
-
-            [[RCCallClient sharedRCCallClient] setVideoProfile:(RC_VIDEO_PROFILE_720P)];
-            
                                 [self startSingleCallViewController:targetId mediaType:mediaType];
                             }];
     }
@@ -104,7 +123,7 @@
 
 - (void)startSingleCallViewController:(NSString *)targetId mediaType:(RCCallMediaType)mediaType {
     
-//    [RCRTCEngine sharedInstance].defaultVideoStream.isPreviewMirror = NO;
+    [[RCCallClient sharedRCCallClient] setVideoProfile:(RC_VIDEO_PROFILE_720P)];
     RCCallSingleCallViewController *singleCallViewController =
         [[RCCallSingleCallViewController alloc] initWithOutgoingCall:targetId mediaType:mediaType];
 
@@ -140,7 +159,8 @@
                                                               mediaType:mediaType
                                                              userIdList:addUserIdList];
                              }];
-        UINavigationController *rootVC = [[UINavigationController alloc] initWithRootViewController:voipCallSelectViewController];
+        UINavigationController *rootVC =
+            [[UINavigationController alloc] initWithRootViewController:voipCallSelectViewController];
         rootVC.modalPresentationStyle = UIModalPresentationFullScreen;
         [self presentCallViewController:rootVC];
     }
@@ -150,24 +170,22 @@
                             targetId:(NSString *)targetId
                            mediaType:(RCCallMediaType)mediaType
                           userIdList:(NSArray *)userIdList {
-    
     if ([self preCheckForStartCall:mediaType]) {
         [self checkSystemPermission:mediaType
                             success:^{
-                                UIViewController* avCallVC = nil;
+                                UIViewController *avCallVC = nil;
                                 if (mediaType == RCCallMediaAudio) {
                                     avCallVC = [[RCCallAudioMultiCallViewController alloc]
-                                                    initWithOutgoingCall:conversationType
-                                                                targetId:targetId
-                                                              userIdList:userIdList];
-                                    
+                                        initWithOutgoingCall:conversationType
+                                                    targetId:targetId
+                                                  userIdList:userIdList];
+
                                 } else {
                                     avCallVC = [[RCCallVideoMultiCallViewController alloc]
-                                                    initWithOutgoingCall:conversationType
-                                                                targetId:targetId
-                                                               mediaType:mediaType
-                                                              userIdList:userIdList];
-                                    
+                                        initWithOutgoingCall:conversationType
+                                                    targetId:targetId
+                                                   mediaType:mediaType
+                                                  userIdList:userIdList];
                                 }
                                 [self presentCallViewController:avCallVC];
                             }];
@@ -198,10 +216,8 @@
                 if (granted) {
                     successBlock();
                 } else {
-                    [self
-                        loadErrorAlertWithConfirm:NSLocalizedStringFromTable(@"AccessRightTitle", @"RongCloudKit", nil)
-                                          message:NSLocalizedStringFromTable(@"speakerAccessRight", @"RongCloudKit",
-                                                                             nil)];
+                    [self loadErrorAlertWithConfirm:RCCallKitLocalizedString(@"AccessRightTitle")
+                                            message:RCCallKitLocalizedString(@"speakerAccessRight")];
                 }
             });
         }];
@@ -212,21 +228,19 @@
     AVAuthorizationStatus authStatus = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
 
     if (authStatus == AVAuthorizationStatusDenied || authStatus == AVAuthorizationStatusRestricted) {
-        [self loadErrorAlertWithConfirm:NSLocalizedStringFromTable(@"AccessRightTitle", @"RongCloudKit", nil)
-                                message:NSLocalizedStringFromTable(@"cameraAccessRight", @"RongCloudKit", nil)];
+        [self loadErrorAlertWithConfirm:RCCallKitLocalizedString(@"AccessRightTitle")
+                                message:RCCallKitLocalizedString(@"cameraAccessRight")];
         complete(NO);
     } else if (authStatus == AVAuthorizationStatusNotDetermined) {
-        [AVCaptureDevice
-            requestAccessForMediaType:AVMediaTypeVideo
-                    completionHandler:^(BOOL granted) {
-                        if (!granted) {
-                            [self loadErrorAlertWithConfirm:NSLocalizedStringFromTable(@"AccessRightTitle",
-                                                                                       @"RongCloudKit", nil)
-                                                    message:NSLocalizedStringFromTable(@"cameraAccessRight",
-                                                                                       @"RongCloudKit", nil)];
-                        }
-                        complete(granted);
-                    }];
+        [AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo
+                                 completionHandler:^(BOOL granted) {
+                                     if (!granted) {
+                                         [self
+                                             loadErrorAlertWithConfirm:RCCallKitLocalizedString(@"AccessRightTitle")
+                                                               message:RCCallKitLocalizedString(@"cameraAccessRight")];
+                                     }
+                                     complete(granted);
+                                 }];
     } else {
         complete(YES);
     }
@@ -235,12 +249,10 @@
 - (BOOL)preCheckForStartCall:(RCCallMediaType)mediaType {
     RCCallSession *currentCallSession = [RCCall sharedRCCall].currentCallSession;
     if (currentCallSession && currentCallSession.mediaType == RCCallMediaAudio) {
-        [self loadErrorAlertWithoutConfirm:NSLocalizedStringFromTable(@"VoIPAudioCallExistedWarning", @"RongCloudKit",
-                                                                      nil)];
+        [self loadErrorAlertWithoutConfirm:RCCallKitLocalizedString(@"VoIPAudioCallExistedWarning")];
         return NO;
     } else if (currentCallSession && currentCallSession.mediaType == RCCallMediaVideo) {
-        [self loadErrorAlertWithoutConfirm:NSLocalizedStringFromTable(@"VoIPVideoCallExistedWarning", @"RongCloudKit",
-                                                                      nil)];
+        [self loadErrorAlertWithoutConfirm:RCCallKitLocalizedString(@"VoIPVideoCallExistedWarning")];
         return NO;
     } else {
         return YES;
@@ -248,29 +260,63 @@
 }
 
 - (void)presentCallViewController:(UIViewController *)viewController {
-    [[[UIApplication sharedApplication] keyWindow] endEditing:YES];
-    UIWindow *activityWindow = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-    activityWindow.windowLevel = UIWindowLevelNormal;
-    activityWindow.rootViewController = viewController;
-    
-    NSInteger checker = [RCCallKitUtility compareVersion:[UIDevice currentDevice].systemVersion toVersion:@"13.0"];
-    if (checker >= 0) {
-#ifdef __IPHONE_13_0
-        [activityWindow setWindowScene:[UIApplication sharedApplication].keyWindow.windowScene];
-#endif
+    NSArray *windows = [self.callWindows
+        filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"tag == %ld", kActivityWindowTag]];
+    if (!windows || windows.count == 0) {
+        [[[UIApplication sharedApplication] keyWindow] endEditing:YES];
+        UIWindow *activityWindow = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+        activityWindow.windowLevel = [UIApplication sharedApplication].keyWindow.windowLevel + 1;
+        activityWindow.rootViewController = viewController;
+        activityWindow.tag = kActivityWindowTag;
+        [self.callWindows addObject:activityWindow];
+
+        [self showActivityWindowIfNeedDelay];
+    } else {
+        UIWindow *activityWindow = windows.firstObject;
+        UIViewController *activityViewController = activityWindow.rootViewController;
+        while (activityViewController.presentingViewController) {
+            activityViewController = activityViewController.presentingViewController;
+        }
+        viewController.modalPresentationStyle = UIModalPresentationFullScreen;
+        [activityViewController presentViewController:viewController animated:YES completion:nil];
     }
-    
-    [activityWindow makeKeyAndVisible];
-    CATransition *animation = [CATransition animation];
-    [animation setDuration:0.3];
-    animation.type = kCATransitionMoveIn;     //可更改为其他方式
-    animation.subtype = kCATransitionFromTop; //可更改为其他方式
-    [[activityWindow layer] addAnimation:animation forKey:nil];
-    [self.callWindows addObject:activityWindow];
 }
 
-- (void)dismissCallViewController:(UIViewController *)viewController {
+- (void)showActivityWindowIfNeedDelay {
+    NSArray *windows = [self.callWindows
+        filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"tag == %ld", kActivityWindowTag]];
+    if (!windows || windows.count == 0) {
+        return;
+    }
+    UIWindow *window = windows.firstObject;
+    if (@available(iOS 13.0, *)) {
+        if ([UIApplication sharedApplication].keyWindow.windowScene) {
+            [window setWindowScene:[UIApplication sharedApplication].keyWindow.windowScene];
+            [self showActivityWindow:window];
+        } else {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(),
+                           ^{
+                               [self showActivityWindowIfNeedDelay];
+                           });
+        }
+    } else {
+        [self showActivityWindow:window];
+    }
+}
 
+- (void)showActivityWindow:(UIWindow *)window {
+    dispatch_main_async_safe(^{
+        [window makeKeyAndVisible];
+        CATransition *animation = [CATransition animation];
+        [animation setDuration:0.3];
+        animation.type = kCATransitionMoveIn;      //可更改为其他方式
+        animation.subtype = kCATransitionFromTop;  //可更改为其他方式
+        [[window layer] addAnimation:animation forKey:nil];
+    });
+}
+
+
+- (void)dismissCallViewController:(UIViewController *)viewController {
     [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleDefault];
     if ([viewController isKindOfClass:[RCCallBaseViewController class]]) {
         UIViewController *rootVC = viewController;
@@ -302,22 +348,22 @@
         [callSession hangup];
         return;
     }
-    
+
     if (!callSession.isMultiCall) {
         RCCallSingleCallViewController *singleCallViewController =
-        [[RCCallSingleCallViewController alloc] initWithIncomingCall:callSession];
-        
+            [[RCCallSingleCallViewController alloc] initWithIncomingCall:callSession];
+
         [self presentCallViewController:singleCallViewController];
     } else {
         if (callSession.mediaType == RCCallMediaAudio) {
             RCCallAudioMultiCallViewController *multiCallViewController =
-            [[RCCallAudioMultiCallViewController alloc] initWithIncomingCall:callSession];
-            
+                [[RCCallAudioMultiCallViewController alloc] initWithIncomingCall:callSession];
+
             [self presentCallViewController:multiCallViewController];
         } else {
             RCCallVideoMultiCallViewController *multiCallViewController =
-            [[RCCallVideoMultiCallViewController alloc] initWithIncomingCall:callSession];
-            
+                [[RCCallVideoMultiCallViewController alloc] initWithIncomingCall:callSession];
+
             [self presentCallViewController:multiCallViewController];
         }
     }
@@ -326,25 +372,16 @@
 - (void)didCancelCallRemoteNotification:(NSString *)callId
                           inviterUserId:(NSString *)inviterUserId
                               mediaType:(RCCallMediaType)mediaType
-                             userIdList:(NSArray *)userIdList {
+                             userIdList:(NSArray *)userIdList
+                             pushConfig:(RCMessagePushConfig *)pushConfig
+                         isRemoteCancel:(BOOL)isRemoteCancel {
     [self stopReceiveCallVibrate];
-    
-    [[RCCXCall sharedInstance] endCXCall];
-    for (UILocalNotification *notification in self.locationNotificationList) {
-        if ([notification.userInfo[@"appData"][@"callId"] isEqualToString:callId]) {
-            [[UIApplication sharedApplication] cancelLocalNotification:notification];
-            [self.locationNotificationList removeObject:notification];
-            break;
-        }
-    }
-}
 
-- (void)didReceiveCallRemoteNotification:(NSString *)callId
-                           inviterUserId:(NSString *)inviterUserId
-                               mediaType:(RCCallMediaType)mediaType
-                              userIdList:(NSArray *)userIdList
-                                userDict:(NSDictionary *)userDict{
-    [self didReceiveCallRemoteNotification:callId inviterUserId:inviterUserId mediaType:mediaType userIdList:userIdList userDict:userDict isVoIPPush:NO];
+    [[RCCXCall sharedInstance] endCXCall];
+
+    if (pushConfig && isRemoteCancel) {
+        [self postLocalNotification:pushConfig userInfo:nil hasSound:NO isCancelCall:YES];
+    }
 }
 
 - (void)didReceiveCallRemoteNotification:(NSString *)callId
@@ -352,117 +389,188 @@
                                mediaType:(RCCallMediaType)mediaType
                               userIdList:(NSArray *)userIdList
                                 userDict:(NSDictionary *)userDict
-                                    isVoIPPush:(BOOL)isVoIPPush{
+                              isVoIPPush:(BOOL)isVoIPPush
+                              pushConfig:(RCMessagePushConfig *)pushConfig {
     if (!self.canIncomingCall) {
         return;
     }
-    
-    [self startReceiveCallVibrate];
-    
-    UILocalNotification *callNotification = [[UILocalNotification alloc] init];
-    callNotification.alertAction = NSLocalizedStringFromTable(@"LocalNotificationShow", @"RongCloudKit", nil);
+//RCCallKit_Delete_Start
+#if PUBLIC
+#else
+    if (isVoIPPush) {
+        NSInteger checker = [RCCallKitUtility compareVersion:[UIDevice currentDevice].systemVersion toVersion:@"10.0"];
+        if (checker >= 0) {
+            if (mediaType == RCCallMediaAudio) {
+                [[RCCXCall sharedInstance] reportIncomingCallWithCallId:callId
+                                                                inviter:inviterUserId
+                                                             userIdList:userIdList
+                                                                isVideo:NO];
+                return;
+            } else {
+                [[RCCXCall sharedInstance] reportIncomingCallWithCallId:callId
+                                                                inviter:inviterUserId
+                                                             userIdList:userIdList
+                                                                isVideo:YES];
+                return;
+            }
+        }
+    }
+#endif
+    //RCCallKit_Delete_end
 
-    NSString *inviterUserName = [[RCUserInfoCacheManager sharedManager] getUserInfo:inviterUserId].name;
-    if (mediaType == RCCallMediaAudio) {
-        if (inviterUserName) {
-            callNotification.alertBody =
-                [NSString stringWithFormat:@"%@%@", inviterUserName,
-                                           NSLocalizedStringFromTable(@"VoIPAudioCallIncoming", @"RongCloudKit", nil)];
+    [self startReceiveCallVibrate];
+
+    [self postLocalNotification:pushConfig userInfo:userDict hasSound:YES isCancelCall:NO];
+}
+
+- (void)postLocalNotification:(RCMessagePushConfig *)pushConfig
+                     userInfo:(NSDictionary *)userInfo
+                     hasSound:(BOOL)hasSound
+                 isCancelCall:(BOOL)isCancelCall {
+    NSLog(@"postLocalNotification hasSound:%@,isCancelCall:%@", hasSound ? @"YES" : @"NO",
+          isCancelCall ? @"YES" : @"NO");
+    NSString *pushContent = @"";
+    NSString *title = @"";
+    NSString *soundName = @"RongCallKit.bundle/voip/voip_call.caf";
+
+    if ([RCIMClient sharedRCIMClient].pushProfile.isShowPushContent ||
+        (pushConfig && pushConfig.forceShowDetailContent)) {
+        if (pushConfig && pushConfig.pushTitle && pushConfig.pushTitle.length != 0) {
+            title = pushConfig.pushTitle;
         } else {
-            callNotification.alertBody =
-                [NSString stringWithFormat:@"%@", NSLocalizedStringFromTable(@"VoIPAudioCallIncomingWithoutUserName",
-                                                                             @"RongCloudKit", nil)];
+            RCUserInfo *userInfo = [[RCUserInfoCacheManager sharedManager] getUserInfo:self.currentCallSession.inviter];
+            if (self.currentCallSession.conversationType == ConversationType_PRIVATE) {
+                if (userInfo) {
+                    title = userInfo.name;
+                }
+            } else {
+                RCGroup *groupInfo =
+                    [[RCUserInfoCacheManager sharedManager] getGroupInfo:self.currentCallSession.targetId];
+                if (groupInfo) {
+                    title = groupInfo.groupName;
+                }
+            }
+        }
+        if (pushConfig && pushConfig.pushContent && pushConfig.pushContent.length != 0 &&
+            ![pushConfig.pushContent isEqualToString:@"voip"]) {
+            pushContent = pushConfig.pushContent;
+        } else {
+            if (isCancelCall) {
+                pushContent = RCCallKitLocalizedString(@"VoIPCall_hangup_PushContent");
+            } else {
+                RCUserInfo *userInfo =
+                    [[RCUserInfoCacheManager sharedManager] getUserInfo:self.currentCallSession.inviter];
+                if (userInfo) {
+                    pushContent =
+                        [NSString stringWithFormat:self.currentCallSession.mediaType == RCCallMediaAudio ?
+                                                       RCCallKitLocalizedString(@"VoIPCall_invite_audio_push_Content") :
+                                                       RCCallKitLocalizedString(@"VoIPCall_invite_video_push_Content"),
+                                                   userInfo.name];
+                } else {
+                    pushContent = self.currentCallSession.mediaType == RCCallMediaVideo ?
+                        RCCallKitLocalizedString(@"VoIPVideoCallIncomingWithoutUserName") :
+                        RCCallKitLocalizedString(@"VoIPAudioCallIncomingWithoutUserName");
+                }
+            }
         }
     } else {
-        if (inviterUserName) {
-            callNotification.alertBody =
-                [NSString stringWithFormat:@"%@%@", inviterUserName,
-                                           NSLocalizedStringFromTable(@"VoIPVideoCallIncoming", @"RongCloudKit", nil)];
+        pushContent = RCCallKitLocalizedString(@"receive_new_message");
+    }
+    NSString *requestWithIdentifier = [NSUUID UUID].UUIDString;
+    if (pushConfig && pushConfig.iOSConfig && pushConfig.iOSConfig.apnsCollapseId &&
+        pushConfig.iOSConfig.apnsCollapseId.length > 0) {
+        requestWithIdentifier = pushConfig.iOSConfig.apnsCollapseId;
+    }
+
+    if (@available(iOS 10.0, *)) {
+        UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
+        if (pushConfig && !pushConfig.disablePushTitle) {
+            content.title = title;
+        }
+        content.body = pushContent;
+        content.userInfo = userInfo;
+        if (hasSound) {
+            content.sound = [UNNotificationSound soundNamed:soundName];
         } else {
-            callNotification.alertBody =
-                [NSString stringWithFormat:@"%@", NSLocalizedStringFromTable(@"VoIPVideoCallIncomingWithoutUserName",
-                                                                             @"RongCloudKit", nil)];
+            content.sound = [UNNotificationSound defaultSound];
         }
-    }
-
-    callNotification.userInfo = userDict;
-    callNotification.soundName = @"RongCloud.bundle/voip/voip_call.caf";
-
-    // VoIP Push和接收消息的通话排重
-    for (UILocalNotification *notification in self.locationNotificationList) {
-        if ([notification.userInfo[@"appData"][@"callId"] isEqualToString:callId]) {
-            return;
+        if (pushConfig && pushConfig.iOSConfig && pushConfig.iOSConfig.threadId) {
+            content.threadIdentifier = pushConfig.iOSConfig.threadId;
         }
-    }
+        NSLog(@"postLocalNotification id:%@", requestWithIdentifier);
+        [[UNUserNotificationCenter currentNotificationCenter]
+            removeDeliveredNotificationsWithIdentifiers:@[requestWithIdentifier]];
+        UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:requestWithIdentifier
+                                                                              content:content
+                                                                              trigger:nil];
+        [[UNUserNotificationCenter currentNotificationCenter] addNotificationRequest:request
+                                                               withCompletionHandler:^(NSError *_Nullable error){
+                                                               }];
 
-    [self.locationNotificationList addObject:callNotification];
-    [[UIApplication sharedApplication] presentLocalNotificationNow:callNotification];
+    } else {
+        UILocalNotification *callNotification = [[UILocalNotification alloc] init];
+        callNotification.alertAction = RCCallKitLocalizedString(@"LocalNotificationShow");
+
+        if (@available(iOS 8.2, *)) {
+            if (pushConfig && !pushConfig.disablePushTitle) {
+                callNotification.alertTitle = title;
+            }
+        }
+        callNotification.alertBody = pushContent;
+        callNotification.userInfo = userInfo;
+        if (hasSound) {
+            [callNotification setSoundName:soundName];
+        } else {
+            [callNotification setSoundName:UILocalNotificationDefaultSoundName];
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            UILocalNotification *notification = [self.locationNotificationMap objectForKey:requestWithIdentifier];
+            if (notification) {
+                [[UIApplication sharedApplication] cancelLocalNotification:notification];
+            }
+            [self.locationNotificationMap setObject:callNotification forKey:requestWithIdentifier];
+            [[UIApplication sharedApplication] presentLocalNotificationNow:callNotification];
+        });
+    }
 }
 
 #pragma mark - alert
 - (void)loadErrorAlertWithoutConfirm:(NSString *)title {
-    UIAlertView *alert =
-        [[UIAlertView alloc] initWithTitle:title message:nil delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
-    alert.tag = AlertWithoutConfirm;
-    [NSTimer scheduledTimerWithTimeInterval:1.0f
-                                     target:self
-                                   selector:@selector(cancelAlert:)
-                                   userInfo:alert
-                                    repeats:NO];
-    [alert show];
-}
-
-- (void)cancelAlert:(NSTimer *)scheduledTimer {
-    UIAlertView *alert = (UIAlertView *)(scheduledTimer.userInfo);
-    if (alert.tag == AlertWithoutConfirm) {
-        [alert dismissWithClickedButtonIndex:0 animated:NO];
-    }
-    [[UIApplication sharedApplication].delegate.window makeKeyAndVisible];
+    [RCAlertView showAlertController:title message:nil hiddenAfterDelay:1.0f inViewController:nil dismissCompletion:^{
+        [[UIApplication sharedApplication].delegate.window makeKeyAndVisible];
+    }];
 }
 
 - (void)loadErrorAlertWithConfirm:(NSString *)title message:(NSString *)message {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:title
-                                                        message:message
-                                                       delegate:nil
-                                              cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"RongCloudKit", nil)
-                                              otherButtonTitles:nil];
-        alert.tag = AlertWithConfirm;
-        [alert show];
-    });
+    [RCAlertView showAlertController:title message:message cancelTitle:RCCallKitLocalizedString(@"OK")];
 }
 
-- (void)startReceiveCallVibrate
-{
-    //默认情况按静音或者锁屏键会静音
-    AVAudioSession *audioSession = [AVAudioSession sharedInstance];
-    [audioSession setCategory:AVAudioSessionCategorySoloAmbient error:nil];
+- (void)startReceiveCallVibrate {
     [self triggerVibrateRCCall];
 }
 
-- (void)stopReceiveCallVibrate
-{
+- (void)stopReceiveCallVibrate {
     if (self.timer) {
         [self.timer invalidate];
         self.timer = nil;
     }
-    
-    if (self.currentCallSession.callStatus == RCCallIncoming || self.currentCallSession.callStatus == RCCallRinging) {
-        [[AVAudioSession sharedInstance] setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
-    }
 }
 
 - (void)triggerVibrateRCCall {
-    self.timer = [NSTimer scheduledTimerWithTimeInterval:2.f target:self selector:@selector(triggerVibrateRCCallAction) userInfo:nil repeats:YES];
+    self.timer = [NSTimer scheduledTimerWithTimeInterval:2.f
+                                                  target:self
+                                                selector:@selector(triggerVibrateRCCallAction)
+                                                userInfo:nil
+                                                 repeats:YES];
 }
 
-- (void)triggerVibrateRCCallAction
-{
+- (void)triggerVibrateRCCallAction {
     NSInteger checker = [RCCallKitUtility compareVersion:[UIDevice currentDevice].systemVersion toVersion:@"9.0"];
     if (checker >= 0) {
-        AudioServicesPlaySystemSoundWithCompletion(kSystemSoundID_Vibrate, ^{});
-    }
-    else{
+        AudioServicesPlaySystemSoundWithCompletion(kSystemSoundID_Vibrate,
+                                                   ^{
+                                                   });
+    } else {
         AudioServicesPlaySystemSound(kSystemSoundID_Vibrate);
     }
 }
@@ -475,9 +583,23 @@
 - (id<RCCallGroupMemberDataSource>)groupMemberDataSource {
     return [RCIM sharedRCIM].groupMemberDataSource;
 }
+
 - (void)setGroupMemberDataSource:(id<RCCallGroupMemberDataSource>)groupMemberDataSource {
     [RCIM sharedRCIM].groupMemberDataSource = groupMemberDataSource;
 }
 //接口向后兼容 --]]
+
++ (NSString *)getVersion {
+    return __RongCallKit__Version;
+}
+
++ (void)load {
+    Class clazz = NSClassFromString(@"RCUtilities");
+    if (clazz && [clazz respondsToSelector:@selector(setModuleName:version:)]) {
+        [clazz performSelector:@selector(setModuleName:version:)
+                    withObject:@"callkit"
+                    withObject:__RongCallKit__Version];
+    }
+}
 
 @end

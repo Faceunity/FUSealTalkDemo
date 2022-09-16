@@ -8,7 +8,7 @@
 
 #import "RCDDebugSelectChatController.h"
 #import "RCDTableView.h"
-#import <RongCloudOpenSource/RongIMKit.h>
+#import <RongIMKit/RongIMKit.h>
 #import "RCDGroupManager.h"
 #import "RCDUserInfoManager.h"
 #import "RCDDebugMessageExtensionLogController.h"

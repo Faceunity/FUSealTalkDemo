@@ -16,7 +16,6 @@
 #import <AssetsLibrary/AssetsLibrary.h>
 #import "UIView+MBProgressHUD.h"
 #import "RCDForwardManager.h"
-#import "RCDWeChatManager.h"
 #import "NormalAlertView.h"
 @interface RCDMyQRCodeView ()
 
@@ -30,7 +29,6 @@
 @property (nonatomic, strong) UIView *shareBgView;
 @property (nonatomic, strong) UIButton *saveButton;
 @property (nonatomic, strong) UIButton *shareSealTalkBtn;
-@property (nonatomic, strong) UIButton *shareWechatBtn;
 
 @property (nonatomic, strong) NSString *targetId;
 
@@ -72,11 +70,11 @@
     if (status == ALAuthorizationStatusRestricted || status == ALAuthorizationStatusDenied) {
         UIViewController *rootVC = [UIApplication sharedApplication].delegate.window.rootViewController;
         UIAlertController *alertController = [UIAlertController
-            alertControllerWithTitle:NSLocalizedStringFromTable(@"AccessRightTitle", @"RongCloudKit", nil)
-                             message:NSLocalizedStringFromTable(@"photoAccessRight", @"RongCloudKit", nil)
+            alertControllerWithTitle:RCLocalizedString(@"AccessRightTitle")
+                             message:RCLocalizedString(@"photoAccessRight")
                       preferredStyle:UIAlertControllerStyleAlert];
         [alertController
-            addAction:[UIAlertAction actionWithTitle:NSLocalizedStringFromTable(@"OK", @"RongCloudKit", nil)
+            addAction:[UIAlertAction actionWithTitle:RCLocalizedString(@"OK")
                                                style:UIAlertActionStyleDefault
                                              handler:nil]];
         [rootVC presentViewController:alertController animated:YES completion:nil];
@@ -121,22 +119,6 @@
     if ([self.delegate respondsToSelector:@selector(myQRCodeViewShareSealTalk)]) {
         [self.delegate myQRCodeViewShareSealTalk];
         [self hide];
-    }
-}
-
-- (void)didShareWechatBtnAction {
-    if ([RCDWeChatManager weChatCanShared]) {
-        UIImage *image = [self captureCurrentView:self.qrBgView];
-        [[RCDWeChatManager sharedManager] sendImage:image atScene:WXSceneSession];
-    } else {
-        // 提示用户安装微信
-        [NormalAlertView showAlertWithTitle:nil
-                                    message:RCDLocalizedString(@"NotInstalledWeChat")
-                              describeTitle:nil
-                               confirmTitle:RCDLocalizedString(@"confirm")
-                                    confirm:^{
-
-                                    }];
     }
 }
 
@@ -199,7 +181,6 @@
 - (void)addShareBgViewSubviews {
     [self.shareBgView addSubview:self.saveButton];
     [self.shareBgView addSubview:self.shareSealTalkBtn];
-    [self.shareBgView addSubview:self.shareWechatBtn];
     UIView *lineView1 = [[UIView alloc] init];
     lineView1.backgroundColor = HEXCOLOR(0xe5e5e5);
     [self.shareBgView addSubview:lineView1];
@@ -209,7 +190,7 @@
 
     [self.saveButton mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.left.bottom.equalTo(self.shareBgView);
-        make.width.offset(320 / 3);
+        make.width.offset(320 / 2);
     }];
     [lineView1 mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.bottom.equalTo(self.shareBgView);
@@ -219,16 +200,7 @@
     [self.shareSealTalkBtn mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.bottom.equalTo(self.shareBgView);
         make.left.equalTo(self.saveButton.mas_right);
-        make.right.equalTo(self.shareWechatBtn.mas_left);
-    }];
-    [lineView2 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.bottom.equalTo(self.shareBgView);
-        make.left.equalTo(self.shareSealTalkBtn.mas_right).offset(-0.5);
-        make.width.offset(0.5);
-    }];
-    [self.shareWechatBtn mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.bottom.right.equalTo(self.shareBgView);
-        make.width.offset(320 / 3);
+        make.right.equalTo(self.shareBgView);
     }];
 }
 
@@ -289,9 +261,9 @@
 
 - (void)image:(UIImage *)image didFinishSavingWithError:(NSError *)error contextInfo:(void *)contextInfo {
     if (error == nil) {
-        [self showHUDMessage:NSLocalizedStringFromTable(@"SavePhotoSuccess", @"RongCloudKit", nil)];
+        [self showHUDMessage:RCLocalizedString(@"SavePhotoSuccess")];
     } else {
-        [self showHUDMessage:NSLocalizedStringFromTable(@"SavePhotoFailed", @"RongCloudKit", nil)];
+        [self showHUDMessage:RCLocalizedString(@"SavePhotoFailed")];
     }
 }
 
@@ -374,25 +346,12 @@
         _shareSealTalkBtn = [[UIButton alloc] init];
         [_shareSealTalkBtn setTitleColor:HEXCOLOR(0x0099ff) forState:(UIControlStateNormal)];
         _shareSealTalkBtn.titleLabel.font = [UIFont systemFontOfSize:13];
-        [_shareSealTalkBtn setTitle:RCDLocalizedString(@"ShareToSealTalk") forState:(UIControlStateNormal)];
+        [_shareSealTalkBtn setTitle:RCDLocalizedString(@"ShareToST") forState:(UIControlStateNormal)];
         [_shareSealTalkBtn addTarget:self
                               action:@selector(didShareSealTalkAction)
                     forControlEvents:(UIControlEventTouchUpInside)];
     }
     return _shareSealTalkBtn;
-}
-
-- (UIButton *)shareWechatBtn {
-    if (!_shareWechatBtn) {
-        _shareWechatBtn = [[UIButton alloc] init];
-        [_shareWechatBtn setTitleColor:HEXCOLOR(0x0099ff) forState:(UIControlStateNormal)];
-        _shareWechatBtn.titleLabel.font = [UIFont systemFontOfSize:13];
-        [_shareWechatBtn setTitle:RCDLocalizedString(@"ShareToWeChat") forState:(UIControlStateNormal)];
-        [_shareWechatBtn addTarget:self
-                            action:@selector(didShareWechatBtnAction)
-                  forControlEvents:(UIControlEventTouchUpInside)];
-    }
-    return _shareWechatBtn;
 }
 
 @end

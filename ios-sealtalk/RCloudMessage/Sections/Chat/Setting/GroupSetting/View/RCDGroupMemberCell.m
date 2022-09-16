@@ -11,7 +11,7 @@
 #import "RCDUserInfoManager.h"
 #import <SDWebImage/UIImageView+WebCache.h>
 #import "RCDUtilities.h"
-#import <RongCloudOpenSource/RongIMKit.h>
+#import <RongIMKit/RongIMKit.h>
 @interface RCDGroupMemberCell ()
 @property (nonatomic, strong) UILabel *rightLabel;
 
@@ -44,7 +44,7 @@
                                        [weakSelf.portraitImageView
                                            sd_setImageWithURL:[NSURL URLWithString:user.portraitUri]
                                              placeholderImage:[UIImage imageNamed:@"contact"]];
-                                       weakSelf.nameLabel.text = user.name;
+                                       weakSelf.nameLabel.text = [RCKitUtility getDisplayName:user];
                                    }];
 }
 

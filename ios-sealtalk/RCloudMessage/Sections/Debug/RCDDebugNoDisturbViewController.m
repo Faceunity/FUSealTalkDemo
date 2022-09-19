@@ -23,10 +23,10 @@
 
     [self initSubviews];
 
-    [[RCIMClient sharedRCIMClient] getNotificationQuietHours:^(NSString *startTime, int spansMin) {
+    [[RCIMClient sharedRCIMClient] getNotificationQuietHours:^(NSString *startTime, int spanMins) {
         dispatch_async(dispatch_get_main_queue(), ^{
             self.startTimeTextField.text = startTime;
-            self.durationTimeTextField.text = [NSString stringWithFormat:@"%ld", (long)spansMin];
+            self.durationTimeTextField.text = [NSString stringWithFormat:@"%ld", (long)spanMins];
         });
     }
                                                        error:nil];
@@ -59,14 +59,7 @@
     if (!success) {
         title = RCDLocalizedString(@"set_fail");
     }
-    dispatch_async(dispatch_get_main_queue(), ^{
-        UIAlertController *alertController =
-            [UIAlertController alertControllerWithTitle:title message:nil preferredStyle:UIAlertControllerStyleAlert];
-        [alertController addAction:[UIAlertAction actionWithTitle:RCDLocalizedString(@"confirm")
-                                                            style:UIAlertActionStyleDefault
-                                                          handler:nil]];
-        [self presentViewController:alertController animated:YES completion:nil];
-    });
+    [RCAlertView showAlertController:title message:nil cancelTitle:RCDLocalizedString(@"confirm") inViewController:self];
 }
 
 - (void)initSubviews {

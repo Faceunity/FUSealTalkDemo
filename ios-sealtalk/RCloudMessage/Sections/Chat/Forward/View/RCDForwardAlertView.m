@@ -175,7 +175,7 @@
         } else {
             userInfo = [RCDDBManager getFriend:model.targetId];
         }
-        self.nameLabel.text = userInfo.name;
+        self.nameLabel.text = [RCKitUtility getDisplayName:userInfo];
     } else if (model.conversationType == ConversationType_GROUP) {
         RCDGroupInfo *groupInfo = [RCDDBManager getGroup:model.targetId];
         self.nameLabel.text = groupInfo.groupName;
@@ -250,7 +250,7 @@
     }
     if (imageUrl.length > 0) {
         [imageView sd_setImageWithURL:[NSURL URLWithString:imageUrl]
-                     placeholderImage:[UIImage imageNamed:@"default_portrait_msg"]];
+                     placeholderImage:RCResourceImage(@"default_portrait_msg")];
     } else {
         imageView.image = [DefaultPortraitView portraitView:model.targetId name:name];
     }

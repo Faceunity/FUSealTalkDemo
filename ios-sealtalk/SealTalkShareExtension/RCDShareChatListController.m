@@ -38,7 +38,7 @@
     }
     self.tableView.tableFooterView = [UIView new];
     NSURL *groupURL = [[NSFileManager defaultManager]
-        containerURLForSecurityApplicationGroupIdentifier:@"group.cn.rongcloud.im.share"];
+        containerURLForSecurityApplicationGroupIdentifier:MCShareExtensionKey];
     NSURL *fileURL = [groupURL URLByAppendingPathComponent:@"rongcloudShare.plist"];
     self.dataArray = [NSArray arrayWithContentsOfURL:fileURL];
     [self.tableView registerClass:[RCDShareChatListCell class] forCellReuseIdentifier:ReuseIdentifier];
@@ -63,7 +63,7 @@
 
     [request setHTTPMethod:@"POST"];
 
-    NSUserDefaults *userDefaults = [[NSUserDefaults alloc] initWithSuiteName:@"group.cn.rongcloud.im.share"];
+    NSUserDefaults *userDefaults = [[NSUserDefaults alloc] initWithSuiteName:MCShareExtensionKey];
     NSString *cookie = [userDefaults valueForKey:@"Cookie"];
 
     [request setValue:cookie forHTTPHeaderField:@"Cookie"];
@@ -116,7 +116,7 @@
                                NSString *notify = nil;
                                if (!connectionError) {
                                    NSUserDefaults *shareUserDefaults =
-                                       [[NSUserDefaults alloc] initWithSuiteName:@"group.cn.rongcloud.im.share"];
+                                       [[NSUserDefaults alloc] initWithSuiteName:MCShareExtensionKey];
                                    NSMutableArray *array = [NSMutableArray
                                        arrayWithArray:[shareUserDefaults valueForKey:@"sharedMessages"]];
                                    [array addObject:insertMessageDict];
@@ -128,7 +128,7 @@
                                }
                                dispatch_async(dispatch_get_main_queue(), ^{
                                    UIAlertController *alertController =
-                                       [UIAlertController alertControllerWithTitle:nil
+                                       [UIAlertController alertControllerWithTitle:@""
                                                                            message:notify
                                                                     preferredStyle:UIAlertControllerStyleAlert];
                                    [self presentViewController:alertController animated:YES completion:nil];

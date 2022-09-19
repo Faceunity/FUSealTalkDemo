@@ -25,7 +25,7 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"SealTalk";
-    NSUserDefaults *userDefaults = [[NSUserDefaults alloc] initWithSuiteName:@"group.cn.rongcloud.im.share"];
+    NSUserDefaults *userDefaults = [[NSUserDefaults alloc] initWithSuiteName:MCShareExtensionKey];
     NSString *cookie = [userDefaults valueForKey:@"Cookie"];
     if (cookie.length == 0) {
         self.isLogin = NO;
@@ -164,7 +164,7 @@
         item.title = RCDLocalizedString(@"i_know_it");
         __weak typeof(self) weakSelf = self;
 
-        self.textView.text = RCDLocalizedString(@"use_share_must_open_sealtalk");
+        self.textView.text = RCDLocalizedString(@"use_share_must_open_st");
         self.textView.textAlignment = NSTextAlignmentCenter;
         item.tapHandler = ^{
             [weakSelf.extensionContext completeRequestReturningItems:@[] completionHandler:nil];

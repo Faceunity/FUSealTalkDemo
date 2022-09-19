@@ -10,7 +10,7 @@
 #import "RCDContactTableViewCell.h"
 #import "RCDPersonDetailViewController.h"
 #import "RCDUIBarButtonItem.h"
-#import <RongCloudOpenSource/RongIMKit.h>
+#import <RongIMKit/RongIMKit.h>
 #import "RCDUserInfoManager.h"
 #import "RCDGroupMemberCell.h"
 #import "RCDGroupManager.h"
@@ -114,7 +114,7 @@
         RCDFriendInfo *friend = [RCDUserInfoManager getFriendInfo:userId];
         RCDGroupMember *member = [RCDGroupManager getGroupMember:userId groupId:self.groupId];
         if ([user.name.lowercaseString containsString:searchString] ||
-            [friend.displayName.lowercaseString containsString:searchString] ||
+            [friend.alias.lowercaseString containsString:searchString] ||
             [member.groupNickname containsString:searchString]) {
             [self.searchResultList addObject:userId];
         }

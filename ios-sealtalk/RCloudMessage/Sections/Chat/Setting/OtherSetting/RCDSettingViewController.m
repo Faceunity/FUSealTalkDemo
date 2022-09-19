@@ -10,7 +10,7 @@
 #import "RCDBaseSettingTableViewCell.h"
 #import "RCDUIBarButtonItem.h"
 #import "RCDIMService.h"
-#import <RongCloudOpenSource/RongIMKit.h>
+#import <RongIMKit/RongIMKit.h>
 static NSString *CellIdentifier = @"RCDBaseSettingTableViewCell";
 @interface RCDSettingViewController ()
 @property (nonatomic, strong) UIActivityIndicatorView *clearLoadingView;

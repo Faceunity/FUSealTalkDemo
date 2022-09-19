@@ -2,18 +2,27 @@
 //  RCCall.h
 //  RongCallKit
 //
-//  Created by 岑裕 on 16/3/11.
+//  Created by RongCloud on 16/3/11.
 //  Copyright © 2016年 RongCloud. All rights reserved.
 //
 
 #import <Foundation/Foundation.h>
 #import <RongCallLib/RongCallLib.h>
-#import <RongIMKit/RongIMKit.h>
 #import "RCMultiCallInviteNewUserDelegate.h"
 
-#define RCCallGroupMemberDataSource RCIMGroupMemberDataSource //接口向后兼容
+#if __has_include(<RongIMKit/RongIMKit.h>)
 
-/// 新的 callsession 被创建时发出改通知
+#import <RongIMKit/RongIMKit.h>
+
+#else
+
+#import "RongIMKit.h"
+
+#endif
+
+#define RCCallGroupMemberDataSource RCIMGroupMemberDataSource  //接口向后兼容
+
+/// 新的 callsession 被创建时发出该通知
 UIKIT_EXTERN NSNotificationName const RCCallNewSessionCreationNotification;
 
 /*!
@@ -29,31 +38,29 @@ UIKIT_EXTERN NSNotificationName const RCCallNewSessionCreationNotification;
 /*!
  音频通话支持的最大通话人数
  */
-@property (nonatomic, assign) int maxMultiAudioCallUserNumber;
+@property (nonatomic, assign) NSInteger maxMultiAudioCallUserNumber;
 
 /*!
  视频通话支持的最大通话人数
  */
-@property(nonatomic, assign) int maxMultiVideoCallUserNumber;
+@property (nonatomic, assign) NSInteger maxMultiVideoCallUserNumber;
 
-/**
+/*!
  系统来电显示的 app 名字
  */
 @property (nonatomic, copy) NSString *appLocalizedName;
 
-/**
+/*!
  是否处理来电, 默认: YES 处理, 设置为 NO 时会直接挂断来电
 */
 @property (nonatomic, assign) BOOL canIncomingCall;
 
-/**
+/*!
  多人音视频通话邀请用户代理
  
  @discussion 如果实现该代理则多人音视频通话界面将有用户自己定义否则使用 RongCallKit 自带的选人界面
- 
  */
 @property (nonatomic, weak) id<RCMultiCallInviteNewUserDelegate> callInviteNewUserDelegate;
-
 
 /*!
  群组成员列表提供者
@@ -61,7 +68,8 @@ UIKIT_EXTERN NSNotificationName const RCCallNewSessionCreationNotification;
  @warning  **已废弃，请勿使用。**
  升级说明：如果您之前使用了此属性，可以直接替换为[RCIM sharedRCIM]的groupMemberDataSource属性，行为和实现完全一致。
  */
-@property (nonatomic, weak) id<RCCallGroupMemberDataSource> groupMemberDataSource __deprecated_msg("已废弃，请勿使用。");
+@property (nonatomic, weak) id<RCCallGroupMemberDataSource> groupMemberDataSource __deprecated_msg("已废弃，请勿使用。")
+    ;
 
 /*!
  获取融云通话界面组件CallKit的核心类单例
@@ -151,5 +159,14 @@ UIKIT_EXTERN NSNotificationName const RCCallNewSessionCreationNotification;
  停止来电铃声和震动
  */
 - (void)stopReceiveCallVibrate;
+
+/*!
+ 获取 SDK 版本号
+
+ @return 版本号
+
+ @remarks 参数配置
+ */
++ (NSString *)getVersion;
 
 @end

@@ -57,6 +57,7 @@
                                          RCDFriendInfo *friendInfo = [[RCDFriendInfo alloc] init];
                                          friendInfo.userId = userId;
                                          friendInfo.displayName = result.content[@"displayName"];
+                                         friendInfo.alias = friendInfo.displayName;
                                          NSDictionary *userDic = result.content[@"user"];
                                          friendInfo.name = userDic[@"nickname"];
                                          friendInfo.portraitUri = userDic[@"portraitUri"];
@@ -222,6 +223,7 @@
                                              friendInfo.name = userDic[@"nickname"];
                                              friendInfo.portraitUri = userDic[@"portraitUri"];
                                              friendInfo.displayName = respFriend[@"displayName"];
+                                             friendInfo.alias = friendInfo.displayName;
                                              friendInfo.status = [respFriend[@"status"] integerValue];
                                              friendInfo.phoneNumber = userDic[@"phone"];
                                              friendInfo.stAccount = userDic[@"stAccount"];
@@ -355,14 +357,20 @@
                                parameters:nil
                                  response:^(RCDHTTPResult *result) {
                                      if (result.success) {
-                                         RCDUserInfo *userInfo = [[RCDUserInfo alloc] init];
-                                         userInfo.userId = result.content[@"id"];
-                                         userInfo.name = result.content[@"nickname"];
-                                         userInfo.portraitUri = result.content[@"portraitUri"];
-                                         userInfo.stAccount = result.content[@"stAccount"];
-                                         userInfo.gender = result.content[@"gender"];
-                                         if (completeBlock) {
-                                             completeBlock(userInfo);
+                                         if (result.content) {
+                                             RCDUserInfo *userInfo = [[RCDUserInfo alloc] init];
+                                             userInfo.userId = result.content[@"id"];
+                                             userInfo.name = result.content[@"nickname"];
+                                             userInfo.portraitUri = result.content[@"portraitUri"];
+                                             userInfo.stAccount = result.content[@"stAccount"];
+                                             userInfo.gender = result.content[@"gender"];
+                                             if (completeBlock) {
+                                                 completeBlock(userInfo);
+                                             }
+                                         }else{
+                                             if (completeBlock) {
+                                                 completeBlock(nil);
+                                             }
                                          }
                                      } else {
                                          if (completeBlock) {

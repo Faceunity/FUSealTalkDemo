@@ -49,8 +49,12 @@ static NSString *cleanConversationCellIdentifier = @"RCDCleanConversationCellIde
     return 55;
 }
 
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section{
+    return CGFLOAT_MIN;
+}
+
 - (CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section {
-    return 0.01;
+    return CGFLOAT_MIN;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -87,7 +91,7 @@ static NSString *cleanConversationCellIdentifier = @"RCDCleanConversationCellIde
 #pragma mark - Private Method
 - (void)setupData {
     NSArray *conversations =
-        [[RCIMClient sharedRCIMClient] getConversationList:@[ @(ConversationType_PRIVATE), @(ConversationType_GROUP) ]];
+        [[RCIMClient sharedRCIMClient] getConversationList:@[ @(ConversationType_PRIVATE), @(ConversationType_GROUP),@(ConversationType_APPSERVICE),@(ConversationType_PUBLICSERVICE),@(ConversationType_SYSTEM) ]];
     NSMutableArray *dealWithArray = [NSMutableArray array];
     for (RCConversation *conversation in conversations) {
         if (![conversation.targetId isEqualToString:RCDGroupNoticeTargetId]) {
@@ -131,10 +135,7 @@ static NSString *cleanConversationCellIdentifier = @"RCDCleanConversationCellIde
 
 - (void)setupNavi {
     self.title = RCDLocalizedString(@"CleanChatHistory");
-    RCDUIBarButtonItem *leftButton = [[RCDUIBarButtonItem alloc] initWithLeftBarButton:RCDLocalizedString(@"back")
-                                                                                target:self
-                                                                                action:@selector(clickBackBtn:)];
-    self.navigationItem.leftBarButtonItem = leftButton;
+    self.navigationItem.leftBarButtonItems = [RCDUIBarButtonItem getLeftBarButton:RCDLocalizedString(@"back") target:self action:@selector(clickBackBtn:)];
 }
 
 - (void)deleteConversation {
@@ -202,10 +203,11 @@ static NSString *cleanConversationCellIdentifier = @"RCDCleanConversationCellIde
 - (RCDTableView *)tableView {
     if (!_tableView) {
         _tableView = [[RCDTableView alloc] init];
-        [_tableView setSectionIndexColor:[UIColor darkGrayColor]];
-        _tableView.allowsMultipleSelection = YES;
         _tableView.delegate = self;
         _tableView.dataSource = self;
+        _tableView.tableFooterView = [UIView new];
+        [_tableView setSectionIndexColor:[UIColor darkGrayColor]];
+        _tableView.allowsMultipleSelection = YES;
     }
     return _tableView;
 }

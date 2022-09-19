@@ -62,7 +62,7 @@
 
     [self setUserInfo];
     [self setStatusInfo];
-    self.timeLabel.text = [RCKitUtility ConvertMessageTime:self.notice.createTime / 1000];
+    self.timeLabel.text = [RCKitUtility convertConversationTime:self.notice.createTime / 1000];
 }
 
 - (void)reloadCell:(RCDGroupInviteStatus)status {
@@ -78,7 +78,7 @@
                                              dispatch_async(dispatch_get_main_queue(), ^{
                                                  RCDFriendInfo *friend = [RCDUserInfoManager getFriendInfo:userId];
                                                  if (friend && friend.displayName.length > 0) {
-                                                     userInfo.name = friend.displayName;
+                                                     userInfo.alias = friend.displayName;
                                                  }
                                                  completeBlock(userInfo);
                                              });
@@ -86,7 +86,7 @@
     } else {
         RCDFriendInfo *friend = [RCDUserInfoManager getFriendInfo:userId];
         if (friend && friend.displayName.length > 0) {
-            user.name = friend.displayName;
+            user.alias = friend.displayName;
         }
         completeBlock(user);
     }
@@ -115,7 +115,7 @@
         }
         [self.portraitImageView
             sd_setImageWithURL:[NSURL URLWithString:group.portraitUri]
-              placeholderImage:[RCKitUtility imageNamed:@"default_group_portrait" ofBundle:@"RongCloud.bundle"]];
+              placeholderImage:RCResourceImage(@"default_group_portrait")];
     } else if (self.notice.noticeType == RCDGroupNoticeTypeManagerApproving) {
         self.infoLabel.text = [NSString stringWithFormat:RCDLocalizedString(@"RequestJoinGroup"), group.groupName];
     }
@@ -126,12 +126,12 @@
         [self getUserInfo:self.notice.operatorId
                  complete:^(RCDUserInfo *user) {
                      self.infoLabel.text =
-                         [NSString stringWithFormat:RCDLocalizedString(@"InviteYouJoinGroup"), user.name];
+                         [NSString stringWithFormat:RCDLocalizedString(@"InviteYouJoinGroup"), [RCKitUtility getDisplayName:user]];
                  }];
     } else if (self.notice.noticeType == RCDGroupNoticeTypeManagerApproving) {
         [self getUserInfo:self.notice.targetId
                  complete:^(RCDUserInfo *user) {
-                     self.nameLabel.text = user.name;
+                     self.nameLabel.text = [RCKitUtility getDisplayName:user];
                      if (user.portraitUri.length == 0) {
                          user.portraitUri = [RCDUtilities defaultUserPortrait:user];
                      }
@@ -173,7 +173,7 @@
     [self.portraitImageView mas_updateConstraints:^(MASConstraintMaker *make) {
         make.centerY.equalTo(self.contentView);
         make.left.equalTo(self.contentView).offset(10);
-        make.height.width.offset(46);
+        make.height.width.offset([RCKitConfig defaultConfig].ui.globalConversationPortraitSize.width);
     }];
 
     [self.nameLabel mas_updateConstraints:^(MASConstraintMaker *make) {
@@ -218,7 +218,12 @@
 - (UIImageView *)portraitImageView {
     if (!_portraitImageView) {
         _portraitImageView = [[UIImageView alloc] init];
-        _portraitImageView.layer.cornerRadius = 2.f;
+        if (RCKitConfigCenter.ui.globalConversationAvatarStyle == RC_USER_AVATAR_CYCLE &&
+            RCKitConfigCenter.ui.globalMessageAvatarStyle == RC_USER_AVATAR_CYCLE) {
+            _portraitImageView.layer.cornerRadius = 20.f;
+        } else {
+            _portraitImageView.layer.cornerRadius = 5.f;
+        }
         _portraitImageView.layer.masksToBounds = YES;
         _portraitImageView.contentMode = UIViewContentModeScaleAspectFill;
     }

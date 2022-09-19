@@ -15,7 +15,6 @@
 #import "RCDSearchBar.h"
 #import "RCDSearchViewController.h"
 #import "RCDUIBarButtonItem.h"
-#import "UIColor+RCColor.h"
 #import <SDWebImage/UIImageView+WebCache.h>
 #import "UITabBar+badge.h"
 #import "RCDCommonString.h"
@@ -29,8 +28,10 @@
 #import "RCDGroupConversationCell.h"
 #import "RCDChatNotificationMessage.h"
 #import "RCDUtilities.h"
+#import "RCDNavigationViewController.h"
+#import "RCDGroupManager.h"
 @interface RCDChatListViewController () <UISearchBarDelegate, RCDSearchViewDelegate>
-@property (nonatomic, strong) UINavigationController *searchNavigationController;
+@property (nonatomic, strong) RCDNavigationViewController *searchNavigationController;
 @property (nonatomic, strong) UIView *headerView;
 @property (nonatomic, strong) RCDSearchBar *searchBar;
 @property (nonatomic, assign) NSUInteger index;
@@ -62,8 +63,14 @@
     [self initSubviews];
     [self setTabBarStyle];
     [self registerNotification];
-    [self checkVersion];
     [self getFriendRequesteds];
+}
+
+- (void)viewWillLayoutSubviews{
+    [super viewWillLayoutSubviews];
+    //隐藏导航栏下那条线
+    [self.navigationController.navigationBar setBackgroundImage:[UIImage new] forBarMetrics:UIBarMetricsDefault];
+    [self.navigationController.navigationBar setShadowImage:[UIImage new]];
 }
 
 - (void)viewDidLayoutSubviews {
@@ -103,19 +110,18 @@
 
 #pragma mark - UISearchBarDelegate
 - (void)searchBarTextDidBeginEditing:(UISearchBar *)searchBar {
-    [self.navigationController setNavigationBarHidden:YES animated:YES];
     RCDSearchViewController *searchViewController = [[RCDSearchViewController alloc] init];
-    self.searchNavigationController = [[UINavigationController alloc] initWithRootViewController:searchViewController];
+    self.searchNavigationController = [[RCDNavigationViewController alloc] initWithRootViewController:searchViewController];
     searchViewController.delegate = self;
-    [self.navigationController.view addSubview:self.searchNavigationController.view];
+    self.searchNavigationController.modalPresentationStyle = UIModalPresentationFullScreen;
+    [self presentViewController:self.searchNavigationController animated:NO completion:^{
+        
+    }];
 }
 
 #pragma mark - RCDSearchViewDelegate
 - (void)searchViewControllerDidClickCancel {
-    [self.searchNavigationController.view removeFromSuperview];
-    [self.searchNavigationController removeFromParentViewController];
-    [self.navigationController setNavigationBarHidden:NO animated:YES];
-    [self refreshConversationTableViewIfNeeded];
+    [self.searchNavigationController dismissViewControllerAnimated:NO completion:nil];
 }
 
 #pragma mark - UIScrollViewDelegate
@@ -187,15 +193,17 @@
             RCGroupNotificationMessage *groupNotification = (RCGroupNotificationMessage *)model.lastestMessage;
             if ([groupNotification.operation isEqualToString:@"Quit"]) {
                 NSData *jsonData = [groupNotification.data dataUsingEncoding:NSUTF8StringEncoding];
-                NSDictionary *dictionary =
+                if (jsonData.length > 0) {
+                    NSDictionary *dictionary =
                     [NSJSONSerialization JSONObjectWithData:jsonData options:NSJSONReadingMutableContainers error:nil];
-                NSDictionary *data =
+                    NSDictionary *data =
                     [dictionary[@"data"] isKindOfClass:[NSDictionary class]] ? dictionary[@"data"] : nil;
-                NSString *nickName =
+                    NSString *nickName =
                     [data[@"operatorNickname"] isKindOfClass:[NSString class]] ? data[@"operatorNickname"] : nil;
-                if ([nickName isEqualToString:[RCIM sharedRCIM].currentUserInfo.name]) {
-                    [[RCIMClient sharedRCIMClient] removeConversation:model.conversationType targetId:model.targetId];
-                    [self refreshConversationTableViewIfNeeded];
+                    if ([nickName isEqualToString:[RCIM sharedRCIM].currentUserInfo.name]) {
+                        [[RCIMClient sharedRCIMClient] removeConversation:model.conversationType targetId:model.targetId];
+                        [self refreshConversationTableViewIfNeeded];
+                    }
                 }
             }
         }
@@ -207,16 +215,36 @@
 - (void)rcConversationListTableView:(UITableView *)tableView
                  commitEditingStyle:(UITableViewCellEditingStyle)editingStyle
                   forRowAtIndexPath:(NSIndexPath *)indexPath {
-    //可以从数据库删除数据
     RCConversationModel *model = self.conversationListDataSource[indexPath.row];
-    [[RCIMClient sharedRCIMClient] removeConversation:ConversationType_SYSTEM targetId:model.targetId];
-    [self.conversationListDataSource removeObjectAtIndex:indexPath.row];
-    [self.conversationListTableView reloadData];
+    if (model.conversationType == ConversationType_PRIVATE && [model.targetId isEqualToString:RCDGroupNoticeTargetId]) {
+        [RCAlertView showAlertController:nil message:RCDLocalizedString(@"DeleteGroupNoticeList") actionTitles:nil cancelTitle:RCLocalizedString(@"Cancel") confirmTitle:RCLocalizedString(@"Confirm") preferredStyle:(UIAlertControllerStyleAlert) actionsBlock:nil cancelBlock:^{
+            return;
+        } confirmBlock:^{
+            [RCDGroupManager clearGroupNoticeList:^(BOOL success) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (success) {
+                        [self.conversationListDataSource removeObjectAtIndex:indexPath.row];
+                        [self.conversationListTableView reloadData];
+                        [[RCIMClient sharedRCIMClient] removeConversation:ConversationType_PRIVATE
+                                                               targetId:RCDGroupNoticeTargetId];
+                        
+                        [self updateBadgeValueForTabBarItem];
+                    } else {
+                    }
+                });
+            }];
+        } inViewController:self];
+    }else {
+        //可以从数据库删除数据
+        [[RCIMClient sharedRCIMClient] removeConversation:model.conversationType targetId:model.targetId];
+        [self.conversationListDataSource removeObjectAtIndex:indexPath.row];
+        [self.conversationListTableView reloadData];
+    }
 }
 
 //高度
 - (CGFloat)rcConversationListTableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
-    return 67.0f;
+    return 72.0f;
 }
 
 //自定义cell
@@ -395,11 +423,8 @@
                       target:self
                       action:@selector(pushToQRScan)]
     ];
-
-    UIBarButtonItem *rightBarButton = self.tabBarController.navigationItem.rightBarButtonItems[0];
-    CGRect targetFrame = [self.navigationController.view convertRect:rightBarButton.customView.frame
-                                                            fromView:rightBarButton.customView.superview];
-    targetFrame.origin.y = targetFrame.origin.y - 15 - 8.5;
+    CGRect navigationBarRect = self.navigationController.navigationBar.frame;
+    CGRect targetFrame = CGRectMake(self.view.frame.size.width - 30, navigationBarRect.origin.y-navigationBarRect.size.height-24, 100, 80);
     [KxMenu setTintColor:HEXCOLOR(0x000000)];
     [KxMenu setTitleFont:[UIFont systemFontOfSize:17]];
     [KxMenu showMenuInView:self.tabBarController.navigationController.navigationBar.superview
@@ -496,6 +521,10 @@
                                              selector:@selector(didClearMessage)
                                                  name:RCDGroupClearMessageKey
                                                object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(updateBadgeForTabBarItem)
+                                                 name:RCDGroupNoticeUpdateKey
+                                               object:nil];
 }
 
 - (void)didClearMessage {
@@ -522,9 +551,9 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         int allRequesteds = [RCDUserInfoManager getFriendRequesteds];
         if (allRequesteds > 0) {
-            [__weakSelf.tabBarController.tabBar showBadgeOnItemIndex:1];
+            [__weakSelf.tabBarController.tabBar showBadgeOnItemIndex:2];
         } else {
-            [__weakSelf.tabBarController.tabBar hideBadgeOnItemIndex:1];
+            [__weakSelf.tabBarController.tabBar hideBadgeOnItemIndex:2];
         }
     });
 }
@@ -541,7 +570,7 @@
  */
 - (void)pushChat:(id)sender {
     RCDContactSelectedTableViewController *contactSelectedVC =
-        [[RCDContactSelectedTableViewController alloc] initWithTitle:RCDLocalizedString(@"start_chatting")
+        [[RCDContactSelectedTableViewController alloc] initWithTitle:RCDLocalizedString(@"select_contact")
                                            isAllowsMultipleSelection:NO];
     [self.navigationController pushViewController:contactSelectedVC animated:YES];
 }
@@ -550,19 +579,21 @@
     RCDChatViewController *chatVC = [[RCDChatViewController alloc] init];
     chatVC.conversationType = model.conversationType;
     chatVC.targetId = model.targetId;
-    chatVC.userName = model.conversationTitle;
     chatVC.title = model.conversationTitle;
     if (model.conversationModelType == RC_CONVERSATION_MODEL_TYPE_NORMAL) {
         chatVC.unReadMessage = model.unreadMessageCount;
         chatVC.enableNewComingMessageIcon = YES; //开启消息提醒
         chatVC.enableUnreadMessageIcon = YES;
         if (model.conversationType == ConversationType_SYSTEM) {
-            chatVC.userName = RCDLocalizedString(@"de_actionbar_sub_system");
             chatVC.title = RCDLocalizedString(@"de_actionbar_sub_system");
         } else if (model.conversationType == ConversationType_PRIVATE) {
             chatVC.displayUserNameInCell = NO;
         }
     }
+    
+    NSUserDefaults *userDefault = [NSUserDefaults standardUserDefaults];
+    BOOL enable = [[userDefault valueForKey:RCDDebugDisableSystemEmoji] boolValue];
+    chatVC.disableSystemEmoji = enable;
     [self.navigationController pushViewController:chatVC animated:YES];
 }
 
@@ -599,49 +630,32 @@
     [self.navigationController pushViewController:qrcodeVC animated:YES];
 }
 
-- (void)checkVersion {
-    __weak typeof(self) __weakSelf = self;
-    [RCDLoginManager getVersionInfo:^(BOOL needUpdate, NSString *_Nonnull finalURL) {
-        rcd_dispatch_main_async_safe(^{
-            if (needUpdate) {
-                [DEFAULTS setObject:finalURL forKey:RCDApplistURLKey];
-                [__weakSelf.tabBarController.tabBar showBadgeOnItemIndex:3];
-            }
-            [DEFAULTS setObject:@(needUpdate) forKey:RCDNeedUpdateKey];
-            [DEFAULTS synchronize];
-        });
-    }];
-}
-
 - (void)getFriendRequesteds {
     int allRequesteds = [RCDUserInfoManager getFriendRequesteds];
     if (allRequesteds > 0) {
-        [self.tabBarController.tabBar showBadgeOnItemIndex:1];
+        [self.tabBarController.tabBar showBadgeOnItemIndex:2];
     }
 }
 
 - (void)setTabBarStyle {
-    //修改tabbar的背景色
-    UIView *tabBarBG = [UIView new];
-    tabBarBG.frame = self.tabBarController.tabBar.bounds;
-    [[UITabBar appearance] insertSubview:tabBarBG atIndex:0];
     [[UITabBarItem appearance]
-        setTitleTextAttributes:[NSDictionary dictionaryWithObjectsAndKeys:RCDDYCOLOR(0x999999, 0x707070),
+        setTitleTextAttributes:[NSDictionary dictionaryWithObjectsAndKeys:RCDDYCOLOR(0x999999, 0xffffff),
                                                                           UITextAttributeTextColor, nil]
                       forState:UIControlStateNormal];
 
     [[UITabBarItem appearance]
-        setTitleTextAttributes:[NSDictionary dictionaryWithObjectsAndKeys:RCDDYCOLOR(0x0099ff, 0x007acc),
+        setTitleTextAttributes:[NSDictionary dictionaryWithObjectsAndKeys:RCDDYCOLOR(0x0099ff, 0x0099ff),
                                                                           UITextAttributeTextColor, nil]
                       forState:UIControlStateSelected];
-    self.tabBarController.tabBar.backgroundColor = RCDDYCOLOR(0xf9f9f9, 0x000000);
+    [[UITabBar appearance] setBarTintColor:RCDDYCOLOR(0xffffff, 0x1c1c1c)];
+    [UITabBar appearance].translucent = NO;
 }
 
 - (void)initSubviews {
     self.edgesForExtendedLayout = UIRectEdgeNone;
     self.navigationController.navigationBar.translucent = NO;
     //设置tableView样式
-    self.conversationListTableView.separatorColor = RCDDYCOLOR(0xdfdfdf, 0x1a1a1a);
+    self.conversationListTableView.separatorColor = RCDDYCOLOR(0xE3E5E6, 0x272727);
     self.conversationListTableView.tableFooterView = [UIView new];
     [self.headerView addSubview:self.searchBar];
     self.conversationListTableView.tableHeaderView = self.headerView;
@@ -652,16 +666,9 @@
 }
 
 - (void)setNaviItem {
-    RCDUIBarButtonItem *rightBtn = [[RCDUIBarButtonItem alloc] initContainImage:[UIImage imageNamed:@"add"]
-                                                                 imageViewFrame:CGRectMake(8.5, 8.5, 17, 17)
-                                                                    buttonTitle:nil
-                                                                     titleColor:nil
-                                                                     titleFrame:CGRectZero
-                                                                    buttonFrame:CGRectMake(0, 0, 34, 34)
-                                                                         target:self
-                                                                         action:@selector(showMenu)];
+    RCDUIBarButtonItem *rightBtn = [[RCDUIBarButtonItem alloc] initContainImage:[UIImage imageNamed:@"add"] target:self action:@selector(showMenu)];
     self.tabBarController.navigationItem.rightBarButtonItems = @[ rightBtn ];
-    self.tabBarController.navigationItem.title = RCDLocalizedString(@"conversation");
+    self.tabBarController.navigationItem.title = RCDLocalizedString(@"Messages");
 }
 
 #pragma mark - geter & setter

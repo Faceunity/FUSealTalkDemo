@@ -44,11 +44,11 @@
     // todo：设置头像
     if ([userInfo.userId isEqualToString:[RCIM sharedRCIM].currentUserInfo.userId]) {
         [self updateSubviewsWithHaveRemarks:NO];
-        self.nameLabel.text = userInfo.name;
+        self.nameLabel.text = [RCKitUtility getDisplayName:userInfo];
     } else {
-        if (userInfo.displayName != nil && ![userInfo.displayName isEqualToString:@""]) {
+        if (userInfo.alias.length > 0) {
             [self updateSubviewsWithHaveRemarks:YES];
-            self.remarksLabel.text = userInfo.displayName;
+            self.remarksLabel.text = userInfo.alias;
             self.nameLabel.text = [NSString stringWithFormat:RCDLocalizedString(@"someone_nickname"), userInfo.name];
         } else {
             [self updateSubviewsWithHaveRemarks:NO];
@@ -57,7 +57,7 @@
     }
     if (userInfo.stAccount.length > 0 && ![userInfo.stAccount isEqualToString:@""]) {
         self.stAccountLabel.text =
-            [NSString stringWithFormat:@"%@：%@", RCDLocalizedString(@"SealTalkNumber"), userInfo.stAccount];
+            [NSString stringWithFormat:@"%@：%@", RCDLocalizedString(@"STNumber"), userInfo.stAccount];
     }
     if (!userInfo.portraitUri || userInfo.portraitUri.length <= 0) {
         self.portraitImgView.image = [DefaultPortraitView portraitView:userInfo.userId name:userInfo.name];
@@ -278,8 +278,8 @@
     if (!_portraitImgView) {
         _portraitImgView = [[UIImageView alloc] init];
         _portraitImgView.contentMode = UIViewContentModeScaleAspectFill;
-        if ([RCIM sharedRCIM].globalConversationAvatarStyle == RC_USER_AVATAR_CYCLE &&
-            [RCIM sharedRCIM].globalMessageAvatarStyle == RC_USER_AVATAR_CYCLE) {
+        if (RCKitConfigCenter.ui.globalConversationAvatarStyle == RC_USER_AVATAR_CYCLE &&
+            RCKitConfigCenter.ui.globalMessageAvatarStyle == RC_USER_AVATAR_CYCLE) {
             _portraitImgView.layer.cornerRadius = 30;
         } else {
             _portraitImgView.layer.cornerRadius = 5;

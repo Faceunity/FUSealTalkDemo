@@ -214,14 +214,20 @@
     return [RCDDBManager getGroupNoticeList];
 }
 
-+ (void)getGroupNoticeListFromServer:(void (^)(NSArray<RCDGroupNotice *> *))complete {
-    [RCDGroupAPI getGroupNoticeList:^(NSArray<RCDGroupNotice *> *_Nonnull noticeList) {
-        if (noticeList) {
++ (void)getGroupNoticeListFromServer:(void (^)(BOOL success,NSArray<RCDGroupNotice *> *))complete {
+    [RCDGroupAPI getGroupNoticeList:^(BOOL success, NSArray<RCDGroupNotice *> *_Nonnull noticeList) {
+        if (noticeList && noticeList.count > 0) {
             [RCDDBManager clearGroupNoticeList];
             [RCDDBManager saveGroupNoticeList:noticeList];
+            RCConversation *conversation = [[RCIMClient sharedRCIMClient] getConversation:ConversationType_PRIVATE targetId:RCDGroupNoticeTargetId];
+            if (!conversation) {
+                RCDGroupNoticeUpdateMessage *msg = [[RCDGroupNoticeUpdateMessage alloc] init];
+                msg.operation = RCDGroupMemberInvite;
+                [[RCIMClient sharedRCIMClient] insertIncomingMessage:ConversationType_PRIVATE targetId:RCDGroupNoticeTargetId senderUserId:RCDGroupNoticeTargetId receivedStatus:ReceivedStatus_READ content:msg];
+            }
         }
         if (complete) {
-            complete(noticeList);
+            complete(success,noticeList);
         }
     }];
 }
@@ -535,10 +541,11 @@
     RCUserInfo *user = [RCDUserInfoManager getUserInfo:userId];
     if (user) {
         RCDGroupMember *memberDetail = [self getGroupMember:userId groupId:groupId];
-        RCDFriendInfo *friend = [RCDUserInfoManager getFriendInfo:userId];
-        if (friend.displayName.length > 0) {
-            user.name = friend.displayName;
-        } else if (memberDetail.groupNickname.length > 0) {
+//        RCDFriendInfo *friend = [RCDUserInfoManager getFriendInfo:userId];
+//        if (friend.displayName.length > 0) {
+//            user.name = friend.displayName;
+//        } else
+        if (memberDetail.groupNickname.length > 0) {
             user.name = memberDetail.groupNickname;
         }
         [[RCIM sharedRCIM] refreshGroupUserInfoCache:user withUserId:userId withGroupId:groupId];
@@ -607,7 +614,10 @@
 + (BOOL)isReceiveGroupNoticeUpdateMessage:(RCMessage *)message {
     RCDGroupNoticeUpdateMessage *msg = (RCDGroupNoticeUpdateMessage *)message.content;
     if ([msg.operation isEqualToString:RCDGroupMemberInvite]) {
-        [RCDGroupManager getGroupNoticeListFromServer:^(NSArray<RCDGroupNotice *> *noticeList) {
+        [RCDGroupManager getGroupNoticeListFromServer:^(BOOL success, NSArray<RCDGroupNotice *> *noticeList) {
+            if (!success) {
+                return;
+            }
             dispatch_async(dispatch_get_main_queue(), ^{
                 [[NSNotificationCenter defaultCenter] postNotificationName:RCDGroupNoticeUpdateKey object:nil];
             });

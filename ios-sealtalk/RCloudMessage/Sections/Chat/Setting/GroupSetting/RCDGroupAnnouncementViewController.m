@@ -9,7 +9,7 @@
 #import "RCDGroupAnnouncementViewController.h"
 #import <MBProgressHUD/MBProgressHUD.h>
 #import "UIColor+RCColor.h"
-#import <RongCloudOpenSource/RongIMKit.h>
+#import <RongIMKit/RongIMKit.h>
 #import "UITextViewAndPlaceholder.h"
 #import "RCDGroupManager.h"
 #import "Masonry.h"
@@ -224,7 +224,7 @@
                                          }
                                          weakSelf.updateTime.text = [NSString
                                              stringWithFormat:RCDLocalizedString(@"AnnouncementTime"),
-                                                              [RCDUtilities getDataString:announce.publishTime]];
+                                                              [RCDUtilities getDateString:announce.publishTime]];
                                      });
                                  }];
 }

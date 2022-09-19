@@ -102,10 +102,7 @@ static NSString *selectGroupCellIdentifier = @"RCDSelectGroupCellIdentifier";
 
 - (void)setupNavi {
     self.navigationItem.title = RCDLocalizedString(@"group");
-    self.navigationItem.leftBarButtonItem =
-        [[RCDUIBarButtonItem alloc] initWithLeftBarButton:RCDLocalizedString(@"back")
-                                                   target:self
-                                                   action:@selector(clickBackBtn)];
+    self.navigationItem.leftBarButtonItems = [RCDUIBarButtonItem getLeftBarButton:RCDLocalizedString(@"back") target:self action:@selector(clickBackBtn)];;
 }
 
 - (void)addObserver {
@@ -174,6 +171,10 @@ static NSString *selectGroupCellIdentifier = @"RCDSelectGroupCellIdentifier";
 
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
     return 55;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section{
+    return CGFLOAT_MIN;
 }
 
 #pragma mark - UIScrollViewDelegate
@@ -249,6 +250,7 @@ static NSString *selectGroupCellIdentifier = @"RCDSelectGroupCellIdentifier";
         _tableView = [[RCDTableView alloc] init];
         _tableView.delegate = self;
         _tableView.dataSource = self;
+        _tableView.tableFooterView = [UIView new];
         _tableView.tableHeaderView =
             [[UIView alloc] initWithFrame:CGRectMake(0.0f, 0.0f, _tableView.bounds.size.width, 0.01f)];
         //设置右侧索引

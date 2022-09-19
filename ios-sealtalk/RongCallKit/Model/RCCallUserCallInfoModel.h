@@ -2,7 +2,7 @@
 //  RCCallUserCallInfoModel.h
 //  RongCallKit
 //
-//  Created by 岑裕 on 16/3/18.
+//  Created by RongCloud on 16/3/18.
 //  Copyright © 2016年 RongCloud. All rights reserved.
 //
 
@@ -18,16 +18,16 @@
 /*!
  用户ID
  */
-@property(nonatomic, strong) NSString *userId;
+@property (nonatomic, strong) NSString *userId;
 
 /*!
  用户信息
  */
-@property(nonatomic, strong) RCUserInfo *userInfo;
+@property (nonatomic, strong) RCUserInfo *userInfo;
 
 /*!
  用户的通话状态Profile
  */
-@property(nonatomic, strong) RCCallUserProfile *profile;
+@property (nonatomic, strong) RCCallUserProfile *profile;
 
 @end

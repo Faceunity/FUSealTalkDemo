@@ -25,16 +25,13 @@
                 dbOpened:(void (^)(RCDBErrorCode))dbOpenedBlock
                  success:(void (^)(NSString *userId))successBlock
                    error:(void (^)(RCConnectErrorCode status))errorBlock {
-    [[RCIM sharedRCIM] connectWithToken:token
-        dbOpened:dbOpenedBlock
-        success:^(NSString *userId) {
+    [[RCIM sharedRCIM] connectWithToken:token dbOpened:dbOpenedBlock success:^(NSString *userId) {
             if (successBlock) {
                 successBlock(userId);
             }
-        }
-        error:^(RCConnectErrorCode status) {
+        } error:^(RCConnectErrorCode errorCode) {
             if (errorBlock) {
-                errorBlock(status);
+                errorBlock(errorCode);
             }
         }];
 }
@@ -97,8 +94,8 @@
             return RCChatSessionInputBarInputVoice;
         } else if (inputType == KBottomBarPluginStatus) {
             //      self.defaultInputType = RCChatSessionInputBarInputExtention;
-        } else if (inputType == KBottomBarBurnStatus) {
-            return RCChatSessionInputBarInputBurnMode;
+        } else if (inputType == KBottomBarDestructStatus) {
+            return RCChatSessionInputBarInputDestructMode;
         }
     }
     return 0;

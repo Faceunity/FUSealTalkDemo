@@ -6,7 +6,7 @@
 //  Copyright © 2021 RongCloud. All rights reserved.
 //
 
-#import <RongCloudOpenSource/RongIMKit.h>
+#import <RongIMKit/RongIMKit.h>
 
 
 @interface RCDDebugGroupReadReceiptChatController : RCConversationViewController

@@ -7,17 +7,17 @@
 //
 
 #import "RCCallFloatingBoard.h"
-#import "RCCallKitUtility.h"
-#import "RCCXCall.h"
 #import <CoreTelephony/CTCall.h>
 #import <CoreTelephony/CTCallCenter.h>
 #import <UIKit/UIKit.h>
+#import "RCCXCall.h"
+#import "RCCallKitUtility.h"
 
 @interface RCCallFloatingBoard () <RCCallSessionDelegate>
 
-@property(nonatomic, strong) NSTimer *activeTimer;
-@property(nonatomic, copy) void (^touchedBlock)(RCCallSession *callSession);
-@property(nonatomic, strong) CTCallCenter *callCenter;
+@property (nonatomic, strong) NSTimer *activeTimer;
+@property (nonatomic, copy) void (^touchedBlock)(RCCallSession *callSession);
+@property (nonatomic, strong) CTCallCenter *callCenter;
 
 @end
 
@@ -55,15 +55,13 @@ static NSString *RCVoipFloatingBoardPosY = @"RCVoipFloatingBoardPosY";
                                              selector:@selector(onOrientationChanged:)
                                                  name:UIApplicationDidChangeStatusBarOrientationNotification
                                                object:nil];
-    [self addProximityMonitoringObserver];
 }
 
 - (void)registerTelephonyEvent {
     self.callCenter = [[CTCallCenter alloc] init];
-    __weak __typeof(self) weakSelf = self;
     self.callCenter.callEventHandler = ^(CTCall *call) {
         if ([call.callState isEqualToString:CTCallStateConnected]) {
-            [weakSelf.callSession hangup];
+            [[RCCXCall sharedInstance] hangupIfNeedWithUUID:call.callID];
         }
     };
 }
@@ -89,8 +87,12 @@ static NSString *RCVoipFloatingBoardPosY = @"RCVoipFloatingBoardPosY";
 }
 
 - (void)updateActiveTimer {
-    long sec = [[NSDate date] timeIntervalSince1970] - self.callSession.connectedTime / 1000;
+    
     if (self.callSession.callStatus == RCCallActive && ![self isVideoViewEnabledSession]) {
+        if (!self.callSession.connectedTime) {
+            return;
+        }
+        long sec = [[NSDate date] timeIntervalSince1970] - self.callSession.connectedTime / 1000;
         [self.floatingButton setTitle:[RCCallKitUtility getReadableStringForTime:sec] forState:UIControlStateNormal];
         [self layoutTextUnderImageButton:self.floatingButton];
     }
@@ -145,10 +147,10 @@ static NSString *RCVoipFloatingBoardPosY = @"RCVoipFloatingBoardPosY";
                 [[UILabel alloc] initWithFrame:CGRectMake(0, self.videoView.frame.size.height / 2 - 10,
                                                           self.videoView.frame.size.width, 20)];
             videoStopTips.textAlignment = NSTextAlignmentCenter;
-            videoStopTips.text = NSLocalizedStringFromTable(@"VoIPCallHasEnd", @"RongCloudKit", nil);
+            videoStopTips.text = RCCallKitLocalizedString(@"VoIPCallHasEnd");
             videoStopTips.textColor = RongVoIPUIColorFromRGB(0x0195ff);
             [self.videoView addSubview:videoStopTips];
-        }else {
+        } else {
             [self.floatingButton setBackgroundColor:[UIColor clearColor]];
             [self.videoView setBackgroundColor:[UIColor clearColor]];
         }
@@ -156,9 +158,8 @@ static NSString *RCVoipFloatingBoardPosY = @"RCVoipFloatingBoardPosY";
         if (self.callSession.callStatus == RCCallActive) {
             [self.floatingButton setBackgroundColor:[UIColor clearColor]];
         } else if (self.callSession.callStatus == RCCallHangup) {
-            [self.floatingButton setTitle:NSLocalizedStringFromTable(@"VoIPCallHasEnd", @"RongCloudKit", nil)
-                                 forState:UIControlStateNormal];
-        }else {
+            [self.floatingButton setTitle:RCCallKitLocalizedString(@"VoIPCallHasEnd") forState:UIControlStateNormal];
+        } else {
             [self.floatingButton setBackgroundColor:[UIColor clearColor]];
         }
     }
@@ -180,14 +181,14 @@ static NSString *RCVoipFloatingBoardPosY = @"RCVoipFloatingBoardPosY";
         _window.layer.masksToBounds = YES;
         _window.layer.borderWidth = 1;
         _window.layer.borderColor = [RongVoIPUIColorFromRGB(0x0A88E1) CGColor];
-        
+
         NSInteger checker = [RCCallKitUtility compareVersion:[UIDevice currentDevice].systemVersion toVersion:@"13.0"];
         if (checker >= 0) {
 #ifdef __IPHONE_13_0
             [_window setWindowScene:[UIApplication sharedApplication].keyWindow.windowScene];
 #endif
         }
-        [_window makeKeyAndVisible]; //关键语句,显示window
+        [_window makeKeyAndVisible];  //关键语句,显示window
 
         UIPanGestureRecognizer *panGestureRecognizer =
             [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePanGestures:)];
@@ -208,8 +209,8 @@ static NSString *RCVoipFloatingBoardPosY = @"RCVoipFloatingBoardPosY";
         self.window.frame = windowFrame;
         [self.window addSubview:_videoView];
 
-        UITapGestureRecognizer *tap =
-            [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(touchedBoard:)];
+        UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self
+                                                                              action:@selector(touchedBoard:)];
         [_videoView addGestureRecognizer:tap];
     }
     return _videoView;
@@ -278,7 +279,8 @@ static NSString *RCVoipFloatingBoardPosY = @"RCVoipFloatingBoardPosY";
             frame.origin.y = 2;
         }
 
-        if ([RCCallKitUtility isLandscape] && [self isSupportOrientation:(UIInterfaceOrientation)[UIDevice currentDevice].orientation]) {
+        if ([RCCallKitUtility isLandscape] &&
+            [self isSupportOrientation:(UIInterfaceOrientation)[UIDevice currentDevice].orientation]) {
             if (frame.origin.y + frame.size.height > [UIScreen mainScreen].bounds.size.width) {
                 frame.origin.y = [UIScreen mainScreen].bounds.size.width - 2 - frame.size.height;
             }
@@ -372,9 +374,9 @@ static NSString *RCVoipFloatingBoardPosY = @"RCVoipFloatingBoardPosY";
 - (void)callDidDisconnect {
     [[RCCXCall sharedInstance] endCXCall];
     [self updateBoard];
+    [self hideCallFloatingBoard];
     [self performSelector:@selector(clearCallFloatingBoard) withObject:nil afterDelay:2];
     [RCCallKitUtility clearScreenForceOnStatus];
-    [self removeProximityMonitoringObserver];
 }
 
 /*!
@@ -415,7 +417,8 @@ static NSString *RCVoipFloatingBoardPosY = @"RCVoipFloatingBoardPosY";
             if (mediaType == RCCallMediaAudio && self.callSession.mediaType != RCCallMediaAudio) {
                 if ([self.callSession changeMediaType:RCCallMediaAudio]) {
                     [self.videoView removeFromSuperview];
-                    [self->_floatingButton setImage:[RCCallKitUtility imageFromVoIPBundle:@"voip/audio_min.png"] forState:UIControlStateNormal];
+                    [self->_floatingButton setImage:[RCCallKitUtility imageFromVoIPBundle:@"voip/audio_min.png"]
+                                           forState:UIControlStateNormal];
                     [self initBoard];
                 }
             }
@@ -469,30 +472,4 @@ static NSString *RCVoipFloatingBoardPosY = @"RCVoipFloatingBoardPosY";
 - (void)errorDidOccur:(RCCallErrorCode)error {
 }
 
-- (void)addProximityMonitoringObserver {
-    if (self.callSession.mediaType == RCCallMediaAudio) {
-        [UIDevice currentDevice].proximityMonitoringEnabled = YES;
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(proximityStatueChanged:)
-                                                     name:UIDeviceProximityStateDidChangeNotification
-                                                   object:nil];
-    }
-}
-
-- (void)removeProximityMonitoringObserver {
-    [UIDevice currentDevice].proximityMonitoringEnabled = NO;
-    [[NSNotificationCenter defaultCenter] removeObserver:self
-                                                    name:UIDeviceProximityStateDidChangeNotification
-                                                  object:nil];
-}
-
-- (void)proximityStatueChanged:(NSNotificationCenter *)notification {
-    //    if ([UIDevice currentDevice].proximityState) {
-    //        [[AVAudioSession sharedInstance]
-    //        setCategory:AVAudioSessionCategoryPlayAndRecord error:nil];
-    //    } else {
-    //        [[AVAudioSession sharedInstance]
-    //        setCategory:AVAudioSessionCategoryPlayback error:nil];
-    //    }
-}
 @end

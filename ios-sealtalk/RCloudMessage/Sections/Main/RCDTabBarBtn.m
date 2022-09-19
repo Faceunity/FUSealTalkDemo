@@ -199,7 +199,7 @@
 
         for (RCConversation *conversation in syncConversations) {
             [NSThread sleepForTimeInterval:0.2];
-            [RCKitUtility syncConversationReadStatusIfEnabled:conversation];
+            [RCKitUtility syncConversationReadStatusIfEnabled:(RCConversationModel *)conversation];
         }
     });
     [UIApplication sharedApplication].applicationIconBadgeNumber = 0;
@@ -290,9 +290,10 @@
     CGFloat widthDelta = MAX(44.0 - bounds.size.width, 0);
     CGFloat heightDelta = MAX(44.0 - bounds.size.height, 0);
     bounds = CGRectInset(bounds, -0.5 * widthDelta, -0.5 * heightDelta);
-    if ([RCDMainTabBarViewController sharedInstance].selectedTabBarIndex > 0) {
+    if ([RCDMainTabBarViewController currentTabBarItemIndex] > 0) {
         bounds = CGRectZero;
     }
+    
     return CGRectContainsPoint(bounds, point);
 }
 

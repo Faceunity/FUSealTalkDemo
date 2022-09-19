@@ -2,7 +2,7 @@
 //  RCCallTipMessageCell.m
 //  RongCallKit
 //
-//  Created by 岑裕 on 16/3/20.
+//  Created by RongCloud on 16/3/20.
 //  Copyright © 2016年 RongCloud. All rights reserved.
 //
 
@@ -26,8 +26,8 @@
     self = [super initWithFrame:frame];
     if (self) {
         self.messageLabel = [RCTipLabel greyTipLabel];
-        self.messageLabel.backgroundColor =
-            [RCKitUtility generateDynamicColor:hex_rgb(0xc9c9c9) darkColor:hex_rgb(0x232323)];
+        self.messageLabel.backgroundColor = [RCKitUtility generateDynamicColor:hex_rgb(0xc9c9c9)
+                                                                     darkColor:hex_rgb(0x232323)];
         self.messageLabel.textColor = dynamic_color(0xffffff, 0x707070);
         [self.baseContentView addSubview:self.messageLabel];
         self.messageLabel.marginInsets = UIEdgeInsetsMake(0.5f, 0.5f, 0.5f, 0.5f);
@@ -38,8 +38,8 @@
     self = [super initWithCoder:aDecoder];
     if (self) {
         self.messageLabel = [RCTipLabel greyTipLabel];
-        self.messageLabel.backgroundColor =
-            [RCKitUtility generateDynamicColor:rgba(0, 0, 0, 0.1) darkColor:hex_rgb(0x232323)];
+        self.messageLabel.backgroundColor = [RCKitUtility generateDynamicColor:rgba(0, 0, 0, 0.1)
+                                                                     darkColor:hex_rgb(0x232323)];
         self.messageLabel.textColor = dynamic_color(0xffffff, 0x707070);
         [self.baseContentView addSubview:self.messageLabel];
         self.messageLabel.marginInsets = UIEdgeInsetsMake(0.5f, 0.5f, 0.5f, 0.5f);
@@ -58,39 +58,37 @@
 
         NSString *status = nil;
         if (message.connectedTime > 0) {
-            status = NSLocalizedStringFromTable(@"VoIPCallHasEnd", @"RongCloudKit", nil);
+            status = RCCallKitLocalizedString(@"VoIPCallHasEnd");
         } else if (message.hangupReason == RCCallDisconnectReasonReject ||
                    message.hangupReason == RCCallDisconnectReasonRemoteReject) {
-            status = NSLocalizedStringFromTable(@"VoIPCallHasReject", @"RongCloudKit", nil);
+            status = RCCallKitLocalizedString(@"VoIPCallHasReject");
         } else if (message.hangupReason == RCCallDisconnectReasonCancel) {
-            status = NSLocalizedStringFromTable(@"VoIPCallHasCancel", @"RongCloudKit", nil);
+            status = RCCallKitLocalizedString(@"VoIPCallHasCancel");
         } else if (message.hangupReason == RCCallDisconnectReasonRemoteCancel) {
-            status = NSLocalizedStringFromTable(@"VoIPCallNoResponse", @"RongCloudKit", nil);
+            status = RCCallKitLocalizedString(@"VoIPCallNoResponse");
         } else if (message.hangupReason == RCCallDisconnectReasonAcceptByOtherClient) {
-            status = NSLocalizedStringFromTable(@"VoIPCallAcceptByOtherClient", @"RongCloudKit", nil);
+            status = RCCallKitLocalizedString(@"VoIPCallAcceptByOtherClient");
         } else if (message.hangupReason == RCCallDisconnectReasonRemoteBusyLine) {
-            status = NSLocalizedStringFromTable(@"VoIPCallRemoteBusyLine", @"RongCloudKit", nil);
+            status = RCCallKitLocalizedString(@"VoIPCallRemoteBusyLine");
         } else {
-            status = NSLocalizedStringFromTable(@"VoIPCallNoResponse", @"RongCloudKit", nil);
+            status = RCCallKitLocalizedString(@"VoIPCallNoResponse");
         }
-
+        // 多语言下英文和阿文 中间都有空格，中文没有空格。
+        NSString *space = [self getSpaceWithLocalLanguage] ;
+        
         if (message.mediaType == RCCallMediaAudio) {
-            [self.messageLabel setText:[NSString stringWithFormat:@" %@%@ ",
-                                                                  NSLocalizedStringFromTable(@"VoIPAudioCall",
-                                                                                             @"RongCloudKit", nil),
-                                                                  status]
+            [self.messageLabel setText:[NSString stringWithFormat:@" %@%@%@ ", RCCallKitLocalizedString(@"VoIPAudioCall"),space
+                                                                  ,status]
                    dataDetectorEnabled:NO];
         } else {
-            [self.messageLabel setText:[NSString stringWithFormat:@" %@%@ ",
-                                                                  NSLocalizedStringFromTable(@"VoIPVideoCall",
-                                                                                             @"RongCloudKit", nil),
+            [self.messageLabel setText:[NSString stringWithFormat:@" %@%@%@ ", RCCallKitLocalizedString(@"VoIPVideoCall"),space ,
                                                                   status]
                    dataDetectorEnabled:NO];
         }
 
-        if (message.hangupReason == RCCallDisconnectReasonMediaServerClosed
-            || message.hangupReason == RCCallDisconnectReasonRemoteEngineUnsupported) {
-            [self.messageLabel setText:NSLocalizedStringFromTable(@"VoIPCallMediaServerClosed", @"RongCloudKit", nil)];
+        if (message.hangupReason == RCCallDisconnectReasonMediaServerClosed ||
+            message.hangupReason == RCCallDisconnectReasonRemoteEngineUnsupported) {
+            [self.messageLabel setText:RCCallKitLocalizedString(@"VoIPCallMediaServerClosed")];
         }
     }
 
@@ -104,6 +102,18 @@
 
     self.messageLabel.frame = CGRectMake((self.baseContentView.bounds.size.width - __labelSize.width) / 2.0f, 0,
                                          __labelSize.width, __labelSize.height);
+}
+
+- (NSString *) getSpaceWithLocalLanguage {
+    NSString * language = [NSLocale preferredLanguages].firstObject;
+    if ([language hasPrefix:@"zh-Hans"]) {
+        return @"";
+    } else if([language hasPrefix:@"en"]) {
+        return @" ";
+    } else if([language hasPrefix:@"ar"]) {
+        return @" ";
+    }
+    return @"";
 }
 
 @end

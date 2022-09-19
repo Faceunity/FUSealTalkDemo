@@ -56,15 +56,11 @@
     [self addObserver];
 }
 
-- (void)viewWillAppear:(BOOL)animated {
+- (void)viewWillAppear:(BOOL)animated{
     [super viewWillAppear:animated];
-    self.navigationController.navigationBar.barTintColor = RCDDYCOLOR(0xf0f0f6, 0x000000);
-    [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleDefault];
-}
-
-- (void)viewWillDisappear:(BOOL)animated {
-    [super viewWillDisappear:animated];
-    self.navigationController.navigationBar.barTintColor = RCDDYCOLOR(0x0099ff, 0x000000);
+    //隐藏导航栏下那条线
+    [self.navigationController.navigationBar setBackgroundImage:[UIImage new] forBarMetrics:UIBarMetricsDefault];
+    [self.navigationController.navigationBar setShadowImage:[UIImage new]];
 }
 
 - (void)dealloc {
@@ -119,7 +115,7 @@
 
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
     if (indexPath.row == 3) {
-        return 45;
+        return SearchMoreViewCellHeight;
     }
     return 65;
 }
@@ -151,7 +147,7 @@
         return nil;
     }
     UIView *view = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.frame.size.width, 40)];
-    view.backgroundColor = RCDDYCOLOR(0xf0f0f6, 0x000000);
+    view.backgroundColor = RCDDYCOLOR(0xf5f6f9, 0x000000);
     return view;
 }
 
@@ -400,7 +396,7 @@
 #pragma mark - getter
 - (RCDTableView *)resultTableView {
     if (!_resultTableView) {
-        _resultTableView = [[RCDTableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
+        _resultTableView = [[RCDTableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
         _resultTableView.delegate = self;
         _resultTableView.dataSource = self;
     }
@@ -416,11 +412,9 @@
 
 - (RCDSearchBar *)searchBar {
     if (!_searchBar) {
-        _searchBar = [[RCDSearchBar alloc] initWithFrame:CGRectZero];
+        _searchBar = [[RCDSearchBar alloc] initWithFrame:CGRectMake(0, 0, self.searchView.frame.size.width - 75, 44)];
         _searchBar.delegate = self;
-        _searchBar.tintColor = [UIColor blueColor];
         [_searchBar becomeFirstResponder];
-        _searchBar.frame = CGRectMake(0, 0, self.searchView.frame.size.width - 75, 44);
     }
     return _searchBar;
 }

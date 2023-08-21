@@ -13,7 +13,7 @@ target 'SealTalk' do
   pod 'SDWebImage', '5.0.6'
   pod 'Bugly', '2.5.91'
   pod 'UMCCommon', '7.3.5'
-  pod 'FURenderKit', '8.3.0'
+  pod 'FURenderKit', '8.7.0'
   
   pod 'RongCloudIM/IMLib', '5.2.4'
   pod 'RongCloudIM/IMKit', '5.2.4'

@@ -16,8 +16,12 @@
 #import "RCloudImageView.h"
 
 #import "FUTipHUD.h"
-#import "FUViewModel.h"
 #import "FUInsetsLabel.h"
+#import "FUBeautyShapeModel.h"
+#import "FUBeautyShapeView.h"
+#import "FUBeautySkinView.h"
+#import "FUBodyView.h"
+#import "FUAlertManager.h"
 
 #define currentUserId ([RCIMClient sharedRCIMClient].currentUserInfo.userId)
 @interface RCCallSingleCallViewController ()
@@ -65,14 +69,48 @@
         addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self
                                                                      action:@selector(backgroundSingleViewClicked)]];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(showTipsTitle:) name:@"disabled" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(recoverShapeParams:) name:@"recoverShape" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(recoverSkinParams:) name:@"recoverSkin" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(recoverBodyParams:) name:@"recoverBody" object:nil];
+}
+
+/// 恢复默认美颜
+- (void)recoverBodyParams:(NSNotification *)notifi{
+    
+    FUBodyView *view = (FUBodyView *)notifi.object;
+    [FUAlertManager showAlertWithTitle:nil message:FULocalizedString(@"是否将所有参数恢复到默认值") cancel:FULocalizedString(@"取消") confirm:FULocalizedString(@"确定") inController:self confirmHandler:^{
+        [view.viewModel recoverAllBodyValuesToDefault];
+        [view refreshSubviews];
+    } cancelHandler:nil];
     
 }
 
 
+/// 恢复默认参数
+- (void)recoverShapeParams:(NSNotification *)notifi{
+    
+    FUBeautyShapeView *view = (FUBeautyShapeView *)notifi.object;
+    [FUAlertManager showAlertWithTitle:nil message:FULocalizedString(@"是否将所有参数恢复到默认值") cancel:FULocalizedString(@"取消") confirm:FULocalizedString(@"确定") inController:self confirmHandler:^{
+        [view.viewModel recoverAllShapeValuesToDefault];
+        [view refreshSubviews];
+    } cancelHandler:nil];
+}
+
+/// 恢复默认参数
+- (void)recoverSkinParams:(NSNotification *)notifi{
+    
+    FUBeautySkinView *view = (FUBeautySkinView *)notifi.object;
+    [FUAlertManager showAlertWithTitle:nil message:FULocalizedString(@"是否将所有参数恢复到默认值") cancel:FULocalizedString(@"取消") confirm:FULocalizedString(@"确定") inController:self confirmHandler:^{
+        [view.viewModel recoverAllSkinValuesToDefault];
+        [view refreshSubviews];
+    } cancelHandler:nil];
+}
+
+/// 高低端机提示语
 - (void)showTipsTitle:(NSNotification *)notifi{
     
-    FUSubModel *subModel = (FUSubModel *)notifi.object;
-    NSString *tipsString = [NSString stringWithFormat:NSLocalizedString(@"该功能只支持在高端机使用", nil), NSLocalizedString(subModel.title, nil)];
+    FUBeautyShapeModel *shape = (FUBeautyShapeModel *)notifi.object;
+    NSString *tipsString = [NSString stringWithFormat:NSLocalizedString(@"该功能只支持在高端机使用", nil), NSLocalizedString(shape.name, nil)];
     
     UIView *window = self.view;
     // 避免重复生成label
@@ -117,7 +155,6 @@
     
     
 }
-
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];

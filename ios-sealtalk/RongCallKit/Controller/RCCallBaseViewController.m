@@ -43,7 +43,6 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 @property (nonatomic, weak) NSTimer *vibrateTimer;
 @property (nonatomic, strong, readonly) NSString *reportDesc;
 @property (nonatomic, assign) BOOL receivedFirstKeyFrame;
-@property(nonatomic, strong) FUDemoManager *demoManager;
 
 @end
 
@@ -183,7 +182,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
     [self stopPlayRing];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
-    [[FUManager shareManager] destoryItems];
+    [FUDemoManager destory];
     
 }
 
@@ -309,12 +308,10 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
     
     /* faceU */
     // FaceUnity UI
-    CGFloat safeAreaBottom = 0;
-    if (@available(iOS 11.0, *)) {
-        safeAreaBottom = [UIApplication sharedApplication].delegate.window.safeAreaInsets.bottom;
-    }
-
-    self.demoManager = [[FUDemoManager alloc] initWithTargetController:self originY:CGRectGetHeight(self.view.frame) - FUBottomBarHeight - safeAreaBottom - 120];
+    [FUDemoManager setupFUSDK];
+    [FUDemoManager shared].flipx = YES;
+    [[FUDemoManager shared] addDemoViewToView:self.view originY:CGRectGetHeight(self.view.frame) - FUBottomBarHeight - FUSafaAreaBottomInsets() - 120];
+    
 }
 
 - (void)onOrientationChanged:(NSNotification *)notification {
@@ -839,8 +836,8 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
     if ([self.callSession switchCameraMode]) {
         _backCamera = !_backCamera;
         
-        [[FUManager shareManager] onCameraChange];
-        [FUManager shareManager].flipx = ![FUManager shareManager].flipx;
+        [FUDemoManager resetTrackedResult];
+        [FUDemoManager shared].flipx = ![FUDemoManager shared].flipx;
     }
     //[_cameraSwitchButton setSelected:_backCamera];
 }
@@ -1590,10 +1587,23 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 #pragma mark - RCCallSessionDelegate
 
 #pragma  mark ----  faceU start  ----
-
 - (void)processCaptureVideoFrame:(CVPixelBufferRef)pixelBuffer{
     
-    [[FUManager shareManager] renderItemsToPixelBuffer:pixelBuffer];
+    [[FUDemoManager shared] checkAITrackedResult];
+    if ([FUDemoManager shared].shouldRender) {
+        [[FUTestRecorder shareRecorder] processFrameWithLog];
+        [FUDemoManager updateBeautyBlurEffect];
+        FURenderInput *input = [[FURenderInput alloc] init];
+        input.renderConfig.imageOrientation = FUImageOrientationUP;
+        input.pixelBuffer = pixelBuffer;
+        input.renderConfig.isFromFrontCamera = [FUDemoManager shared].flipx;
+//        input.renderConfig.isFromMirroredCamera = NO;
+        input.renderConfig.stickerFlipH = [FUDemoManager shared].flipx;
+        //开启重力感应，内部会自动计算正确方向，设置fuSetDefaultRotationMode，无须外面设置
+        input.renderConfig.gravityEnable = YES;
+        input.renderConfig.readBackToPixelBuffer = YES;
+        FURenderOutput *output = [[FURenderKit shareRenderKit] renderWithInput:input];
+    }
 }
 
 /*!

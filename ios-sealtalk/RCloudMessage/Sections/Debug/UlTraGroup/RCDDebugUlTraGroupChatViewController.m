@@ -17,12 +17,13 @@
 #import "RCDChooseUserController.h"
 #import "RCDUGChannelSettingViewController.h"
 
-@interface RCConversationViewController ()<RCDUGChannelTypeDelegate>
+@interface RCConversationViewController ()<RCDUGChannelTypeDelegate,RCUserGroupStatusDelegate>
+@property (nonatomic, strong) id dataSource;
 - (void)reloadRecalledMessage:(long)recalledMsgId;
 - (void)didReceiveMessageNotification:(NSNotification *)notification;
 @end
 
-@interface RCDDebugUltraGroupChatViewController () <RCUltraGroupReadTimeDelegate, RCMessageBlockDelegate,RCUltraGroupTypingStatusDelegate, RCUltraGroupMessageChangeDelegate>
+@interface RCDDebugUltraGroupChatViewController () <RCUltraGroupReadTimeDelegate, RCMessageBlockDelegate,RCUltraGroupTypingStatusDelegate, RCUltraGroupMessageChangeDelegate, RCIMClientReceiveMessageDelegate>
 @property (nonatomic, strong) RCMessageModel *menuSelectModel;
 @end
 
@@ -38,6 +39,7 @@
     [[RCChannelClient sharedChannelManager] setRCUltraGroupReadTimeDelegate:self];
     [[RCChannelClient sharedChannelManager] setRCUltraGroupTypingStatusDelegate:self];
     [[RCChannelClient sharedChannelManager] setRCUltraGroupMessageChangeDelegate:self];
+    [[RCChannelClient sharedChannelManager] setUserGroupStatusDelegate:self];
     [RCCoreClient sharedCoreClient].messageBlockDelegate = self;
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleDDebugChatSettingViewControllerEvent:) name:kRCDDebugChatSettingNotification object:nil];
     
@@ -47,6 +49,7 @@
     [self syncReadStatus];
     
     [[RCChannelClient sharedChannelManager] clearMessagesUnreadStatus:ConversationType_ULTRAGROUP targetId:self.targetId channelId:self.channelId];
+    [[RCCoreClient sharedCoreClient] addReceiveMessageDelegate: self];
 }
 
 - (void)didReceiveMessageNotification:(NSNotification *)notification{
@@ -140,31 +143,31 @@
                                                isPrivate:self.isPrivate
                                                ownnerID:self.ultraGroup.creatorId];
     viewModel.typeDelegate = self;
-    RCDUGChannelSettingViewController *settingVC = [[RCDUGChannelSettingViewController alloc] initWithViewModel:viewModel];;
+    RCDUGChannelSettingViewController *settingVC = [[RCDUGChannelSettingViewController alloc] initWithViewModel:viewModel];
+    settingVC.title = self.title;
     [self.navigationController pushViewController:settingVC animated:YES];
 }
 
-- (void)rightBarButtonItemClicked:(id)sender {
-    long long recordTime = 0;
-    if (self.conversationDataRepository.count > 0) {
-        RCMessageModel *model = self.conversationDataRepository.lastObject;
-        recordTime = model.sentTime;
-    }
-    RCDDebugChatSettingViewController *settingVC = [[RCDDebugChatSettingViewController alloc] init];
-    settingVC.targetId = self.targetId;
-    settingVC.channelId = self.channelId;
-    settingVC.type = self.conversationType;
-    settingVC.recordTime = recordTime;
-    [self.navigationController pushViewController:settingVC animated:YES];
-}
+ 
 
 - (void)syncReadStatus {
+    NSString *firstReadTime = @"None";
+    if (self.firstUnreadMsgSendTime > 0) {
+        NSDateFormatter *dateFormart = [[NSDateFormatter alloc]init];
+        [dateFormart setDateFormat:@"HH:mm:ss"];
+        dateFormart.timeZone = [NSTimeZone systemTimeZone];
+        NSDate *date = [NSDate dateWithTimeIntervalSince1970:self.firstUnreadMsgSendTime/1000];
+        firstReadTime = [dateFormart stringFromDate:date];
+    }
     NSTimeInterval currentTimestamp = [[NSDate date] timeIntervalSince1970]*1000;
 
     [[RCChannelClient sharedChannelManager] syncUltraGroupReadStatus:self.targetId channelId:self.channelId time:currentTimestamp success:^{
-        [self showToastMsg:@"同步阅读时间成功"];
+        NSString *text = [NSString stringWithFormat:@"同步阅读时间成功:(f->%@)", firstReadTime];
+        [self showToastMsg:text];
     } error:^(RCErrorCode errorCode) {
-        [self showAlertTitle:nil message:[NSString stringWithFormat:@"同步阅读时间失败：%@", @(errorCode)]];
+        NSString *text = [NSString stringWithFormat:@"同步阅读时间失败：%@(f->%@)", @(errorCode),firstReadTime];
+
+        [self showAlertTitle:nil message:text];
     }];
 }
 
@@ -174,6 +177,21 @@
     dateFormart.timeZone = [NSTimeZone systemTimeZone];
     NSString *dateString = [dateFormart stringFromDate:[NSDate date]];
     return dateString;
+}
+#pragma mark - RCIMClientReceiveMessageDelegate
+
+- (void)onReceived:(RCMessage *)message left:(int)nLeft object:(nullable id)object {
+    if (nLeft !=0) {
+        return;
+    }
+    if ([message.targetId isEqualToString:self.targetId] && [message.channelId isEqualToString:self.channelId]) {
+        NSTimeInterval currentTimestamp = [[NSDate date] timeIntervalSince1970]*1000;
+        [[RCChannelClient sharedChannelManager] syncUltraGroupReadStatus:self.targetId
+                                                               channelId:self.channelId
+                                                                    time:currentTimestamp
+                                                                 success:nil
+                                                                   error:nil];
+    }
 }
 
 #pragma mark - RCDUGChannelTypeDelegate
@@ -192,7 +210,8 @@
     NSString *blockTypeName = [RCDUtilities getBlockTypeName:blockedMessageInfo.blockType];
     NSString *ctypeName = [RCDUtilities getConversationTypeName:blockedMessageInfo.type];
     NSString *sentTimeFormat = [RCDUtilities getDateString:blockedMessageInfo.sentTime];
-    NSString *msg = [NSString stringWithFormat:@"会话类型: %@,\n会话ID: %@,\n消息ID:%@,\n消息时间戳:%@,\n频道ID: %@,\n附加信息: %@,\n拦截原因:%@(%@)", ctypeName, blockedMessageInfo.targetId, blockedMessageInfo.blockedMsgUId,sentTimeFormat, blockedMessageInfo.channelId, blockedMessageInfo.extra, @(blockedMessageInfo.blockType), blockTypeName];
+    NSString *sourceTypeName = [RCDUtilities getSourceTypeName:blockedMessageInfo.sourceType];
+    NSString *msg = [NSString stringWithFormat:@"会话类型: %@,\n会话ID: %@,\n消息ID:%@,\n消息时间戳:%@,\n频道ID: %@,\n附加信息: %@,\n拦截原因:%@(%@),\n消息源类型:%@(%@),\n消息源内容:%@", ctypeName, blockedMessageInfo.targetId, blockedMessageInfo.blockedMsgUId, sentTimeFormat, blockedMessageInfo.channelId, blockedMessageInfo.extra, @(blockedMessageInfo.blockType), blockTypeName, @(blockedMessageInfo.sourceType), sourceTypeName, blockedMessageInfo.sourceContent];
 
     [self showAlertTitle:nil message:msg];
 }
@@ -256,18 +275,24 @@
     pushConfig.iOSConfig.apnsCollapseId = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-apnsCollapseId"];
     pushConfig.iOSConfig.richMediaUri = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-richMediaUri"];
     pushConfig.iOSConfig.category = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-category"];
-    
+    pushConfig.iOSConfig.interruptionLevel = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-interruptionLevel"];
+
     pushConfig.androidConfig.notificationId = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-id"];
     pushConfig.androidConfig.channelIdMi = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-mi"];
     pushConfig.androidConfig.channelIdHW = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-hw"];
+    pushConfig.androidConfig.categoryHW = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-hw-category"];
     pushConfig.androidConfig.channelIdOPPO = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-oppo"];
     pushConfig.androidConfig.typeVivo = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-vivo"];
+    pushConfig.androidConfig.categoryVivo = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-vivo-category"];
     pushConfig.androidConfig.fcmCollapseKey = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-fcm"];
     pushConfig.androidConfig.fcmImageUrl = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-fcmImageUrl"];
     pushConfig.androidConfig.importanceHW = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-importanceHW"];
     pushConfig.androidConfig.hwImageUrl = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-hwImageUrl"];
     pushConfig.androidConfig.miLargeIconUrl = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-miLargeIconUrl"];
     pushConfig.androidConfig.fcmChannelId = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-fcmChannelId"];
+    // honor
+    pushConfig.androidConfig.importanceHonor = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-importanceHonor"];
+    pushConfig.androidConfig.imageUrlHonor = [[NSUserDefaults standardUserDefaults] objectForKey:@"pushConfig-android-imageUrlHonor"];
     return pushConfig;
 }
 
@@ -300,6 +325,10 @@
     action:@selector(modifyUltraGroupMessage)];
     [list addObject:item1];
     
+    UIMenuItem *item1_1 = [[UIMenuItem alloc] initWithTitle:@"修改敏感"
+    action:@selector(modifyUltraGroupMessage1_1)];
+    [list addObject:item1_1];
+
     UIMenuItem *item2 = [[UIMenuItem alloc] initWithTitle:@"撤回"
     action:@selector(recallUltraGroupMessage)];
     [list addObject:item2];
@@ -312,6 +341,10 @@
     action:@selector(updateUltraGroupMessageExpansion)];
     [list addObject:item3];
     
+    UIMenuItem *item3_1 = [[UIMenuItem alloc] initWithTitle:@"更新敏感KV"
+    action:@selector(updateUltraGroupMessageExpansion3_1)];
+    [list addObject:item3_1];
+
     UIMenuItem *item4 = [[UIMenuItem alloc] initWithTitle:@"删除KV"
     action:@selector(removeUltraGroupMessageExpansion)];
     [list addObject:item4];
@@ -324,9 +357,26 @@
     action:@selector(checkMessageChangedStatus)];
     [list addObject:item6];
 
+    UIMenuItem *item7 = [[UIMenuItem alloc] initWithTitle:@"批量验证"
+    action:@selector(getHistoryMessageForBatchTest)];
+    [list addObject:item7];
+    
     [list addObjectsFromArray:menuList];
     
     return list.copy;
+}
+- (void)rightBarButtonItemClicked:(id)sender {
+    long long recordTime = 0;
+    if (self.conversationDataRepository.count > 0) {
+        RCMessageModel *model = self.conversationDataRepository.lastObject;
+        recordTime = model.sentTime;
+    }
+    RCDDebugChatSettingViewController *settingVC = [[RCDDebugChatSettingViewController alloc] init];
+    settingVC.targetId = self.targetId;
+    settingVC.channelId = self.channelId;
+    settingVC.type = self.conversationType;
+    settingVC.recordTime = recordTime;
+    [self.navigationController pushViewController:settingVC animated:YES];
 }
 
 - (void)didLongTouchMessageCell:(RCMessageModel *)model inView:(UIView *)view {
@@ -338,13 +388,24 @@
  消息修改
  */
 - (void)modifyUltraGroupMessage {
-    
-    NSString *currentUserId = [RCIMClient sharedRCIMClient].currentUserInfo.userId;
+    [self p_modifyUltraGroupMessageWithText:@"这是一条修改的消息"];
+}
+
+// 修改为指定敏感词
+- (void)modifyUltraGroupMessage1_1 {
+    [self p_modifyUltraGroupMessageWithText:@"毛泽东"];
+}
+
+- (void)p_modifyUltraGroupMessageWithText:(NSString *)text {
+    if (text.length == 0) {
+        return;
+    }
+    NSString *currentUserId = [RCCoreClient sharedCoreClient].currentUserInfo.userId;
     NSString *senderUserId = self.menuSelectModel.senderUserId;
-
+    
     if ([currentUserId isEqualToString:senderUserId]) {
-        RCTextMessage *textMessage = [RCTextMessage messageWithContent:@"这是一条修改的消息"];
-
+        RCTextMessage *textMessage = [RCTextMessage messageWithContent:text];
+        
         [[RCChannelClient sharedChannelManager] modifyUltraGroupMessage:self.menuSelectModel.messageUId messageContent:textMessage success:^{
             [self showToastMsg:@"消息修改成功"];
             [self updateEditingMessage];
@@ -366,7 +427,7 @@
     message.targetId = self.targetId;
     message.conversationType = ConversationType_ULTRAGROUP;
     
-    NSString *currentUserId = [RCIMClient sharedRCIMClient].currentUserInfo.userId;
+    NSString *currentUserId = [RCCoreClient sharedCoreClient].currentUserInfo.userId;
     NSString *senderUserId = self.menuSelectModel.senderUserId;
     
     if ([currentUserId isEqualToString:senderUserId]) {
@@ -391,7 +452,7 @@
     message.targetId = self.targetId;
     message.conversationType = ConversationType_ULTRAGROUP;
     
-    NSString *currentUserId = [RCIMClient sharedRCIMClient].currentUserInfo.userId;
+    NSString *currentUserId = [RCCoreClient sharedCoreClient].currentUserInfo.userId;
     NSString *senderUserId = self.menuSelectModel.senderUserId;
     
     if ([currentUserId isEqualToString:senderUserId]) {
@@ -413,7 +474,7 @@
 */
 - (void)updateUltraGroupMessageExpansion {
     
-    NSString *currentUserId = [RCIMClient sharedRCIMClient].currentUserInfo.userId;
+    NSString *currentUserId = [RCCoreClient sharedCoreClient].currentUserInfo.userId;
     NSString *senderUserId = self.menuSelectModel.senderUserId;
     
     RCMessage *message = [[RCCoreClient sharedCoreClient] getMessageByUId:self.menuSelectModel.messageUId];
@@ -424,6 +485,27 @@
         for (NSString *key in allKeys) {
             dic[key] = @"已修改的拓展";
         }
+        [[RCChannelClient sharedChannelManager] updateUltraGroupMessageExpansion:message.messageUId expansionDic:dic success:^{
+            RCMessage *msg = [[RCCoreClient sharedCoreClient] getMessageByUId:message.messageUId];
+            [self showAlertTitle:msg.messageUId message:[msg.expansionDic description]];
+        } error:^(RCErrorCode status) {
+            [self showToastMsg:[NSString stringWithFormat:@"msgUid:%@的KV更新失败%zd",message.messageUId,status]];
+        }];
+    } else {
+        [self showAlertTitle:nil message:@"请确定是否是自己发的可扩展消息"];
+    }
+}
+
+- (void)updateUltraGroupMessageExpansion3_1 {
+    
+    NSString *currentUserId = [RCCoreClient sharedCoreClient].currentUserInfo.userId;
+    NSString *senderUserId = self.menuSelectModel.senderUserId;
+    
+    RCMessage *message = [[RCCoreClient sharedCoreClient] getMessageByUId:self.menuSelectModel.messageUId];
+
+    if ([currentUserId isEqualToString:senderUserId] && message.canIncludeExpansion) {
+        NSMutableDictionary *dic = [NSMutableDictionary new];
+        dic[@"123"] = @"毛泽东";
         [[RCChannelClient sharedChannelManager] updateUltraGroupMessageExpansion:message.messageUId expansionDic:dic success:^{
             [self showToastMsg:[NSString stringWithFormat:@"msgUid:%@的KV已改为%@",message.messageUId,dic]];
         } error:^(RCErrorCode status) {
@@ -439,7 +521,7 @@
 */
 - (void)removeUltraGroupMessageExpansion {
     
-    NSString *currentUserId = [RCIMClient sharedRCIMClient].currentUserInfo.userId;
+    NSString *currentUserId = [RCCoreClient sharedCoreClient].currentUserInfo.userId;
     NSString *senderUserId = self.menuSelectModel.senderUserId;
     
     RCMessage *message = [[RCCoreClient sharedCoreClient] getMessageByUId:self.menuSelectModel.messageUId];
@@ -500,8 +582,9 @@
     if (deleteUids.count > 0) {
         tipString2 = [NSString stringWithFormat:@"删除KV的mUId:%@",[deleteUids componentsJoinedByString:@","]];
     }
-    
-    [self showAlertTitle:tipString message:tipString2];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self showAlertTitle:tipString message:tipString2];
+    });
 }
 
 /*!
@@ -509,7 +592,7 @@
  */
 - (void)onUltraGroupMessageModified:(NSArray<RCMessage*>*)messages {
     NSMutableArray * userids = [NSMutableArray new];
-    NSString *currentUserId = [RCIMClient sharedRCIMClient].currentUserInfo.userId;
+    NSString *currentUserId = [RCCoreClient sharedCoreClient].currentUserInfo.userId;
 
     for (RCMessage* msg in messages) {
         if (![msg.senderUserId isEqualToString:currentUserId]) {
@@ -523,6 +606,21 @@
     [self updateListenerMessages:messages];
 }
 
+- (void)removeModelIfNeed:(long)recalledMsgId {
+    RCMessage *recalledMsg = [[RCCoreClient sharedCoreClient] getMessage:recalledMsgId];
+    if (!recalledMsg) {
+        NSInteger msgID = recalledMsgId;
+        SEL sel = NSSelectorFromString(@"didReloadRecalledMessage:");
+        NSMethodSignature *signature = [self.dataSource methodSignatureForSelector:sel];
+        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+        [invocation setArgument:&msgID atIndex:2];
+        invocation.selector = sel;
+        invocation.target = self.dataSource;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [invocation invoke];
+        });
+    }
+}
 /*!
  消息撤回
  */
@@ -533,10 +631,79 @@
         [[NSNotificationCenter defaultCenter] postNotificationName:RCKitDispatchRecallMessageNotification
                                                             object:@(msg.messageId)
                                                           userInfo:nil];
+        [[NSNotificationCenter defaultCenter] postNotificationName:RCKitDispatchRecallMessageDetailNotification
+                                                            object:msg
+                                                          userInfo:nil];
+        
+        [self removeModelIfNeed:msg.messageId];
+        
     }
 //    NSString *msgUIdStr = [messageUids componentsJoinedByString:@","];
 //    [self showAlertTitle:@"消息撤回的MsgUId" message:msgUIdStr];
     
+}
+- (void)showModifyUIDAlert:(NSArray *)messages{
+    RCMessage *msg = messages.firstObject;
+    UIAlertController *alertController=[UIAlertController alertControllerWithTitle:@"修改第一条消息UID"
+                                                                           message:@""
+                                                                    preferredStyle:UIAlertControllerStyleAlert];
+    [alertController addTextFieldWithConfigurationHandler:^(UITextField * _Nonnull textField) {
+        [textField setText:msg.messageUId];
+        [textField setPlaceholder:@"输入 \"nil\" 可将UID 置为空"];
+    }];
+    UIAlertAction *action=[UIAlertAction actionWithTitle:@"OK"
+                                                   style:UIAlertActionStyleDestructive
+                                                 handler:^(UIAlertAction * _Nonnull action) {
+        NSString *text = [alertController.textFields firstObject].text;
+        if ([text isEqualToString:@"nil"]) {
+            text = nil;
+        }
+        msg.messageUId = text;
+        [self getBatchRemoteUltraGroupMessagesBy:messages];
+    }];
+    UIAlertAction *action_cancel = [UIAlertAction actionWithTitle:@"Cancel"
+                                                            style:UIAlertActionStyleCancel
+                                                          handler:^(UIAlertAction * _Nonnull action) {
+        [self dismissViewControllerAnimated:YES completion:nil];
+    }];
+    
+    [alertController addAction:action];
+    [alertController addAction:action_cancel];
+    [self presentViewController:alertController animated:YES completion:nil];
+}
+
+- (void)getHistoryMessageForBatchTest {
+    RCHistoryMessageOption *option = [[RCHistoryMessageOption alloc] init];
+    option.recordTime = 0;
+    option.count = 5;
+    option.order = RCHistoryMessageOrderDesc;
+    [[RCChannelClient sharedChannelManager] getMessages:ConversationType_ULTRAGROUP targetId:self.targetId channelId:self.channelId option:option complete:^(NSArray *messages, RCErrorCode code) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self showModifyUIDAlert:messages];
+        });
+    }];
+}
+
+/*!
+ 获取同一个超级群下的批量服务消息（含所有频道）
+ */
+- (void)getBatchRemoteUltraGroupMessagesBy:(NSArray *)messages {
+        [[RCChannelClient sharedChannelManager] getBatchRemoteUltraGroupMessages:messages success:^(NSArray *matchedMsgList, NSArray *notMatchMsgList) {
+            NSString *successMsgId = @"获取成功的MsgUId:";
+            for (RCMessage *message in matchedMsgList) {
+                successMsgId = [successMsgId stringByAppendingString:message.messageUId];
+            }
+            
+            NSString *faildMsgID = @"获取失败的MsgUId:";
+            for (RCMessage *message in notMatchMsgList) {
+                message.messageUId = message.messageUId?:@"";
+                faildMsgID = [faildMsgID stringByAppendingString:message.messageUId];
+            }
+            [self showAlertTitle:successMsgId message:faildMsgID];
+            
+        } error:^(RCErrorCode status) {
+            [self showAlertTitle:nil message:[NSString stringWithFormat:@"获取批量服务消息失败%zd",status]];
+        }];
 }
 
 /*!
@@ -567,7 +734,7 @@
 }
 
 - (void)checkMessageChangedStatus{
-    RCMessage *message = [[RCIMClient sharedRCIMClient] getMessage:self.menuSelectModel.messageId];
+    RCMessage *message = [[RCCoreClient sharedCoreClient] getMessage:self.menuSelectModel.messageId];
     [self showToastMsg:message.hasChanged?@"消息已被修改":@"消息未被修改"];
 }
 
@@ -586,6 +753,9 @@
         case RCDDebugNotificationTypeSendMsgKV:
             [self sendKVTextMessage];
             break;
+        case RCDDebugNotificationTypeSendMsgBlockKV:
+            [self sendBlockKVTextMessage];
+            break;
         default:
             break;
     }
@@ -602,7 +772,7 @@
     message.expansionDic = @{kRCDebugKVMessageKey:[self getTimeString]};
     
     __weak typeof(self) weakSelf = self;
-    [[RCIMClient sharedRCIMClient] sendMessage:message pushContent:nil pushData:nil successBlock:^(RCMessage *successMessage) {
+    [[RCCoreClient sharedCoreClient] sendMessage:message pushContent:nil pushData:nil successBlock:^(RCMessage *successMessage) {
         [weakSelf appendAndDisplayMessage:successMessage];
         [self showToastMsg:@"发送携带KV的文本消息成功"];
     } errorBlock:^(RCErrorCode nErrorCode, RCMessage *errorMessage) {
@@ -610,6 +780,25 @@
     }];
 }
 
+// 发送携带敏感词KV的消息
+- (void)sendBlockKVTextMessage {
+    
+    RCTextMessage *messageContent = [RCTextMessage messageWithContent:@"携带敏感词KV的文本消息"];
+    RCMessage *message = [[RCMessage alloc] initWithType:ConversationType_ULTRAGROUP targetId:self.targetId direction:MessageDirection_SEND messageId:-1 content:messageContent];
+    message.messagePushConfig = [self getPushConfig];
+    message.messageConfig = [self getConfig];
+    message.channelId = self.channelId;
+    message.canIncludeExpansion = YES;
+    message.expansionDic = @{@"123":@"毛泽东"};
+    
+    __weak typeof(self) weakSelf = self;
+    [[RCCoreClient sharedCoreClient] sendMessage:message pushContent:nil pushData:nil successBlock:^(RCMessage *successMessage) {
+        [weakSelf appendAndDisplayMessage:successMessage];
+        [self showToastMsg:@"发送携带敏感词KV的文本消息成功"];
+    } errorBlock:^(RCErrorCode nErrorCode, RCMessage *errorMessage) {
+        [self showAlertTitle:nil message:[NSString stringWithFormat:@"send message failed:%ld",(long)nErrorCode]];
+    }];
+}
 - (void)reloadData {
     [self.conversationDataRepository removeAllObjects];
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -692,10 +881,55 @@
 
 - (void)deleteMessages {
     NSArray *tempArray = [self.selectedMessages mutableCopy];
+    self.allowsMessageCellSelection = NO;
     for (int i = 0; i < tempArray.count; i++) {
         [self deleteMessage:tempArray[i]];
     }
-    self.allowsMessageCellSelection = NO;
 }
 
+
+#pragma mark - RCUserGroupStatusDelegate
+/*!
+ 当前用户收到超级群下的用户组中解散通知
+ */
+- (void)userGroupDisbandFrom:(RCConversationIdentifier *)identifier
+                userGroupIds:(NSArray<NSString *> *)userGroupIds {
+    
+}
+
+/*!
+ 当前用户被添加到超级群下的用户组
+ */
+- (void)userAddedTo:(RCConversationIdentifier *)identifier
+       userGroupIds:(NSArray<NSString *> *)userGroupIds {
+    
+}
+
+/*!
+ 当前用户从到超级群下的用户组中被移除
+ */
+- (void)userRemovedFrom:(RCConversationIdentifier *)identifier
+           userGroupIds:(NSArray<NSString *> *)userGroupId {
+    
+}
+
+
+/*!
+ 频道中绑定用户组回调
+ */
+- (void)userGroupBindTo:(RCChannelIdentifier *)identifier
+            channelType:(RCUltraGroupChannelType)channelType
+           userGroupIds:(NSArray<NSString *> *)userGroupIds {
+    
+}
+
+/*!
+ 频道解绑用户组回调
+
+ */
+- (void)userGroupUnbindFrom:(RCChannelIdentifier *)identifier
+                channelType:(RCUltraGroupChannelType)channelType
+               userGroupIds:(NSArray<NSString *> *)userGroupIds {
+    
+}
 @end

@@ -15,7 +15,11 @@
 #import <SDWebImage/UIImageView+WebCache.h>
 #import "UIView+MBProgressHUD.h"
 
-@interface RCDUltraGroupChannelListController ()<RCUltraGroupChannelDelegate>
+@interface RCConversationListViewController()
+- (void)conversationStatusChanged:(NSNotification *)notification;
+@end
+
+@interface RCDUltraGroupChannelListController ()<RCUltraGroupChannelDelegate, RCUltraGroupMessageChangeDelegate, RCUserGroupStatusDelegate>
 @property (nonatomic, strong) UIView *headerView;
 @property (nonatomic, strong) UILabel *nameLabel;
 @property (nonatomic, strong) UIButton *inviteButton;
@@ -48,14 +52,18 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     [[RCChannelClient sharedChannelManager] setUltraGroupChannelDelegate:self];
+    [[RCChannelClient sharedChannelManager] setUserGroupStatusDelegate:self];
     self.conversationListTableView.separatorStyle = UITableViewCellSeparatorStyleNone;
     [self addSubviews];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
+    [[RCChannelClient sharedChannelManager] setRCUltraGroupMessageChangeDelegate:self];
     self.currentChannelID = nil;
 }
+
+
 - (void)didReceiveMessageNotification:(NSNotification *)notification{
     [super didReceiveMessageNotification:notification];
     int left = [notification.userInfo[@"left"] intValue];
@@ -126,10 +134,12 @@
     }];
 }
 
-- (UIView *)channelTypeView:(BOOL)isPrivate {
+- (UIView *)channelTypeView:(BOOL)isPrivate level:(NSInteger)level{
     UILabel *lab = [UILabel new];
     lab.textColor = [UIColor whiteColor];
-    lab.text = !isPrivate ? @" 公有 " : @" 私有 ";
+    NSString *text = !isPrivate ? @" 公有" : @" 私有";
+    text = [NSString stringWithFormat:@"%@:%ld ", text, level];
+    lab.text = text;
     lab.backgroundColor = HEXCOLOR(0x0099fff);
     lab.font = [UIFont systemFontOfSize:12];
     lab.layer.cornerRadius = 2;
@@ -144,12 +154,14 @@
     }];
 }
 
-- (void)configureTagViewFor:(RCConversationBaseCell *)cell channelID:(NSString *)channelID {
+- (void)configureTagViewFor:(RCConversationBaseCell *)cell
+                  channelID:(NSString *)channelID
+                      level:(NSInteger)level {
     if (channelID && [cell isKindOfClass:[RCConversationCell class]]) {
         RCConversationCell *cCell = (RCConversationCell *)cell;
         NSSet *channlesPrivate = [self currentPrivateChannels];
         BOOL isPrivate = [channlesPrivate containsObject:channelID];
-        UIView *tagView = [self channelTypeView:isPrivate];
+        UIView *tagView = [self channelTypeView:isPrivate level:level];
         for (UIView *view in cCell.conversationTagView.subviews) {
             [view removeFromSuperview];
         }
@@ -163,7 +175,9 @@
         if (![self.ultraGroup.groupId isEqual:model.targetId] || !model.channelId) {
             return;
         }
-        [self configureTagViewFor:cell channelID:model.channelId];
+        [self configureTagViewFor:cell
+                        channelID:model.channelId
+                            level:model.notificationLevel];
         [RCDUltraGroupManager getChannelName:self.ultraGroup.groupId channelId:model.channelId complete:^(NSString *channelName) {
             if ([self.ultraGroup.groupId isEqual:model.targetId]) {
                 RCConversationCell *converCell = (RCConversationCell *)cell;
@@ -174,6 +188,20 @@
                 [(UIImageView *)(converCell.headerImageView) sd_setImageWithURL:[NSURL URLWithString:[RCDUtilities defaultUltraChannelPortrait:channel groupId:model.targetId]] placeholderImage:[RCDUtilities imageNamed:@"default_portrait_msg" ofBundle:@"RongCloud.bundle"]];
             }
         }];
+        if([cell isKindOfClass:RCConversationCell.class]){
+            RCConversationCell *conCell = (RCConversationCell *)cell;
+            if([conCell.detailContentView.hightlineLabel.text  isEqualToString:RCLocalizedString(@"HaveMentioned")]){
+                [[RCChannelClient sharedChannelManager] getConversation:model.conversationType targetId:model.targetId channelId:model.channelId completion:^(RCConversation * _Nullable conversation) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        if([conCell.detailContentView.hightlineLabel.text isEqualToString:RCLocalizedString(@"HaveMentioned")]){
+                            conCell.detailContentView.hightlineLabel.text = [NSString stringWithFormat:@"[有%d人@我，%d人@所有人]",conversation.mentionedMeCount,conversation.mentionedCount-conversation.mentionedMeCount];
+                            [conCell.detailContentView updateLayout];
+                        }
+                    });
+                }];
+            }
+        }
+        
     }
 }
 
@@ -201,7 +229,7 @@
     for (RCConversation *conversation in conversationList) {
         RCConversationModel *model = [[RCConversationModel alloc] initWithConversation:conversation extend:nil];
         model.channelId = conversation.channelId;
-        model.unreadMessageCount = conversation.mentionedCount;
+        model.unreadMessageCount = conversation.unreadMessageCount;
         [dataSources addObject:model];
     }
     return dataSources;
@@ -220,6 +248,7 @@
     chatVC.targetId = model.targetId;
     chatVC.channelId = model.channelId;
     chatVC.title = model.conversationTitle;
+    chatVC.firstUnreadMsgSendTime = model.firstUnreadMsgSendTime;
     if (model.targetId) {
         chatVC.isPrivate = [self.privateChannels containsObject:model.channelId];
     }
@@ -241,6 +270,65 @@
 - (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
     return NO;
 }
+
+
+#pragma mark -- RCUltraGroupMessageChangeDelegate
+
+/*!
+ 消息扩展更新，删除
+ 
+ @param messages 消息集合
+ */
+- (void)onUltraGroupMessageExpansionUpdated:(NSArray<RCMessage*>*)messages {
+    
+}
+
+/*!
+ 消息内容发生变更
+ 
+ @param messages 消息集合
+ */
+- (void)onUltraGroupMessageModified:(NSArray<RCMessage*>*)messages {
+    
+}
+
+/*!
+ 消息撤回
+ 
+ @param messages 消息集合
+ */
+- (void)onUltraGroupMessageRecalled:(NSArray<RCMessage*>*)messages {
+    for (RCMessage *message in messages) {
+        if ([message.targetId isEqualToString:self.ultraGroup.groupId]) {
+            [self refreshConversationTableViewIfNeeded];
+            return;
+        }
+    }
+}
+
+
+#pragma mark - NotificationLevel
+
+- (void)updateConversationModelBy:(RCConversationStatusInfo *)statusInfo {
+    for (int i = 0; i < self.conversationListDataSource.count; i++) {
+        RCConversationModel *conversationModel = self.conversationListDataSource[i];
+        BOOL isSameConversation = [conversationModel.targetId isEqualToString:statusInfo.targetId] &&
+        (conversationModel.conversationType == statusInfo.conversationType);
+        BOOL isSameChannel = [conversationModel.channelId isEqualToString:statusInfo.channelId];
+        if (isSameConversation && isSameChannel) {
+            conversationModel.notificationLevel = statusInfo.notificationLevel;
+        }
+    }
+}
+
+- (void)conversationStatusChanged:(NSNotification *)notification {
+    NSArray<RCConversationStatusInfo *> *conversationStatusInfos = notification.object;
+    for (RCConversationStatusInfo *statusInfo in conversationStatusInfos) {
+        [self updateConversationModelBy:statusInfo];
+    }
+    [super conversationStatusChanged:notification];
+}
+
 #pragma mark - Private
 
 - (void)notifyUserKicked:(NSString *)userID
@@ -352,6 +440,88 @@
         [self refreshConversationTableViewIfNeeded];
     });
 }
+
+#pragma mark - RCUserGroupStatusDelegate
+/*!
+ 当前用户收到超级群下的用户组中解散通知
+ 
+ @param identifier           会话标识[type:ConversationType_ULTRAGROUP ]
+ @param userGroupIds          用户组ID列表
+ 
+ @discussion
+ @warning
+ @since
+ */
+- (void)userGroupDisbandFrom:(RCConversationIdentifier *)identifier
+                userGroupIds:(NSArray<NSString *> *)userGroupIds {
+    
+}
+
+/*!
+ 当前用户被添加到超级群下的用户组
+ 
+ @param identifier           会话标识[type:ConversationType_ULTRAGROUP ]
+ @param userGroupIds          用户组ID列表
+ 
+ @discussion
+ @warning
+ @since
+ */
+- (void)userAddedTo:(RCConversationIdentifier *)identifier
+       userGroupIds:(NSArray<NSString *> *)userGroupIds {
+    
+}
+
+/*!
+ 当前用户从到超级群下的用户组中被移除
+ 
+ @param identifier           会话标识[type:ConversationType_ULTRAGROUP ]
+ @param userGroupIds          用户组ID列表
+ 
+ @discussion
+ @warning
+ @since
+ */
+- (void)userRemovedFrom:(RCConversationIdentifier *)identifier
+           userGroupIds:(NSArray<NSString *> *)userGroupId {
+    
+}
+
+
+/*!
+ 频道中绑定用户组回调
+ 
+ @param identifier         频道标识[type:ConversationType_ULTRAGROUP ]
+ @param channelType        频道类型
+ @param userGroupIds          用户组ID列表
+ 
+ @discussion
+ @warning
+ @since
+ */
+- (void)userGroupBindTo:(RCChannelIdentifier *)identifier
+            channelType:(RCUltraGroupChannelType)channelType
+           userGroupIds:(NSArray<NSString *> *)userGroupIds {
+    
+}
+
+/*!
+ 频道解绑用户组回调
+ 
+ @param identifier         频道标识[type:ConversationType_ULTRAGROUP ]
+ @param channelType        频道类型
+ @param userGroupIds       用户组ID列表
+ 
+ @discussion
+ @warning
+ @since
+ */
+- (void)userGroupUnbindFrom:(RCChannelIdentifier *)identifier
+                channelType:(RCUltraGroupChannelType)channelType
+               userGroupIds:(NSArray<NSString *> *)userGroupIds {
+    
+}
+
 #pragma mark - privite
 - (void)invite{
     RCDContactSelectedTableViewController *contactSelectedVC =
@@ -392,40 +562,40 @@
     [self.headerView addSubview:self.addChannelButton];
     
     [self.nameLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(self.headerView).offset(12);
+        make.leading.equalTo(self.headerView).offset(12);
         make.top.equalTo(self.headerView).offset(10+[RCKitUtility getWindowSafeAreaInsets].top);
         make.height.offset(25);
-        make.right.equalTo(self.settingButton.mas_right).offset(-10);
+        make.trailing.equalTo(self.settingButton).offset(-10);
     }];
     [self.settingButton mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.right.equalTo(self.headerView).offset(-12);
+        make.trailing.equalTo(self.headerView).offset(-12);
         make.height.offset(25);
         make.width.offset(22);
         make.centerY.equalTo(self.nameLabel);
     }];
     [self.inviteButton mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(self.headerView).offset(18);
+        make.leading.equalTo(self.headerView).offset(18);
         make.top.equalTo(self.nameLabel.mas_bottom).offset(15);
         make.height.offset(32);
         make.centerX.equalTo(self.headerView);
     }];
     
     [self.infoLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(self.nameLabel);
+        make.leading.equalTo(self.nameLabel);
         make.top.equalTo(self.inviteButton.mas_bottom).offset(33);
         make.height.offset(16);
         make.width.offset(30);
     }];
     
     [self.lineView mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(self.infoLabel.mas_right).offset(10);
-        make.right.equalTo(self.addChannelButton.mas_left).offset(-10);
+        make.leading.equalTo(self.infoLabel.mas_trailing).offset(10);
+        make.trailing.equalTo(self.addChannelButton.mas_leading).offset(-10);
         make.height.offset(0.5);
         make.centerY.equalTo(self.infoLabel);
     }];
     
     [self.addChannelButton mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.right.equalTo(self.headerView).offset(-16);
+        make.trailing.equalTo(self.headerView).offset(-16);
         make.width.height.offset(24);
         make.centerY.equalTo(self.infoLabel);
     }];

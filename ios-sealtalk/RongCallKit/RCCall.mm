@@ -42,9 +42,9 @@
     }
 #endif
 
-static NSString *const __RongCallKit__Version = @"5.2.4_opensource";
-static NSString *const __RongCallKit__Commit = @"bd48b3a9";
-static NSString *const __RongCallKit__Time = @"202207221701";
+static NSString *const __RongCallKit__Version = @"5.12.2_opensource";
+static NSString *const __RongCallKit__Commit = @"0397864e9";
+static NSString *const __RongCallKit__Time = @"202412261638";
 
 @interface RCCall () <RCCallReceiveDelegate>
 
@@ -71,12 +71,6 @@ static NSString *const __RongCallKit__Time = @"202207221701";
             pRongVoIP.callWindows = [[NSMutableArray alloc] init];
             pRongVoIP.locationNotificationMap = [[NSMutableDictionary alloc] init];
             [pRongVoIP registerNotification];
-//RCCallKit_Delete_Start
-#if PUBLIC
-#else
-            [[RCCallClient sharedRCCallClient] setCanHangupSystemPhonecall:NO];
-            [[RCCallClient sharedRCCallClient] setApplePushKitEnable:YES];
-#endif
             //RCCallKit_Delete_end
             NSLog(@"callkitVersion:%@, commitId:%@, time:%@", __RongCallKit__Version, __RongCallKit__Commit,
                   __RongCallKit__Time);
@@ -121,12 +115,15 @@ static NSString *const __RongCallKit__Time = @"202207221701";
     }
 }
 
+- (void)startSingleCrossCall:(NSString *)targetId mediaType:(RCCallMediaType)mediaType {
+    RCCallSingleCallViewController *singleCallViewController =
+        [[RCCallSingleCallViewController alloc] initWithOutgoingCrossCall:targetId mediaType:mediaType];
+    [self presentCallViewController:singleCallViewController];
+}
+
 - (void)startSingleCallViewController:(NSString *)targetId mediaType:(RCCallMediaType)mediaType {
-    
-    [[RCCallClient sharedRCCallClient] setVideoProfile:(RC_VIDEO_PROFILE_720P)];
     RCCallSingleCallViewController *singleCallViewController =
         [[RCCallSingleCallViewController alloc] initWithOutgoingCall:targetId mediaType:mediaType];
-
     [self presentCallViewController:singleCallViewController];
 }
 
@@ -394,28 +391,6 @@ static NSString *const __RongCallKit__Time = @"202207221701";
     if (!self.canIncomingCall) {
         return;
     }
-//RCCallKit_Delete_Start
-#if PUBLIC
-#else
-    if (isVoIPPush) {
-        NSInteger checker = [RCCallKitUtility compareVersion:[UIDevice currentDevice].systemVersion toVersion:@"10.0"];
-        if (checker >= 0) {
-            if (mediaType == RCCallMediaAudio) {
-                [[RCCXCall sharedInstance] reportIncomingCallWithCallId:callId
-                                                                inviter:inviterUserId
-                                                             userIdList:userIdList
-                                                                isVideo:NO];
-                return;
-            } else {
-                [[RCCXCall sharedInstance] reportIncomingCallWithCallId:callId
-                                                                inviter:inviterUserId
-                                                             userIdList:userIdList
-                                                                isVideo:YES];
-                return;
-            }
-        }
-    }
-#endif
     //RCCallKit_Delete_end
 
     [self startReceiveCallVibrate];
@@ -461,11 +436,17 @@ static NSString *const __RongCallKit__Time = @"202207221701";
                 RCUserInfo *userInfo =
                     [[RCUserInfoCacheManager sharedManager] getUserInfo:self.currentCallSession.inviter];
                 if (userInfo) {
-                    pushContent =
-                        [NSString stringWithFormat:self.currentCallSession.mediaType == RCCallMediaAudio ?
-                                                       RCCallKitLocalizedString(@"VoIPCall_invite_audio_push_Content") :
-                                                       RCCallKitLocalizedString(@"VoIPCall_invite_video_push_Content"),
-                                                   userInfo.name];
+                    if (self.currentCallSession.conversationType == ConversationType_PRIVATE) {
+                        pushContent =
+                            [NSString stringWithFormat:self.currentCallSession.mediaType == RCCallMediaAudio ?
+                                                           RCCallKitLocalizedString(@"VoIPCall_invite_audio_push_Content") :
+                                                           RCCallKitLocalizedString(@"VoIPCall_invite_video_push_Content")];
+                    } else {
+                        pushContent =
+                            [NSString stringWithFormat:@"%@ %@",userInfo.name,self.currentCallSession.mediaType == RCCallMediaAudio ?
+                                                           RCCallKitLocalizedString(@"VoIPCall_invite_audio_push_Content") :
+                                                           RCCallKitLocalizedString(@"VoIPCall_invite_video_push_Content")];
+                    }
                 } else {
                     pushContent = self.currentCallSession.mediaType == RCCallMediaVideo ?
                         RCCallKitLocalizedString(@"VoIPVideoCallIncomingWithoutUserName") :
@@ -532,6 +513,10 @@ static NSString *const __RongCallKit__Time = @"202207221701";
             [[UIApplication sharedApplication] presentLocalNotificationNow:callNotification];
         });
     }
+}
+
+- (void)didMissCall:(RCCallSession *)callSession {
+    NSLog(@"[didMissCall] session:%@, reason:%zd", callSession, callSession.disconnectReason);
 }
 
 #pragma mark - alert

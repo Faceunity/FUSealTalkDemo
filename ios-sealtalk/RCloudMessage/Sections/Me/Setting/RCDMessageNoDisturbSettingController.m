@@ -56,7 +56,7 @@
         }
 
         int timeDif = timeDiff / 60;
-        [[RCIMClient sharedRCIMClient] setNotificationQuietHours:startTime
+        [[RCCoreClient sharedCoreClient] setNotificationQuietHours:startTime
             spanMins:timeDif
             success:^{
                 [DEFAULTS
@@ -84,7 +84,7 @@
 
 - (void)getNoDisturbStaus {
     __weak typeof(self) weakSelf = self;
-    [[RCIMClient sharedRCIMClient] getNotificationQuietHours:^(NSString *startTime, int spanMins) {
+    [[RCCoreClient sharedCoreClient] getNotificationQuietHours:^(NSString *startTime, int spanMins) {
         NSDateFormatter *formatterE = [[NSDateFormatter alloc] init];
         [formatterE setDateFormat:@"HH:mm:ss"];
         NSDate *startDate = [formatterE dateFromString:startTime];
@@ -140,7 +140,7 @@
     int timeDif = timeDiff / 60;
 
     __weak typeof(self) blockSelf = self;
-    [[RCIMClient sharedRCIMClient] setNotificationQuietHours:startTimeStr
+    [[RCCoreClient sharedCoreClient] setNotificationQuietHours:startTimeStr
         spanMins:timeDif
         success:^{
 
@@ -157,7 +157,7 @@
 
 - (void)removeQuietHours {
     __weak typeof(self) blockSelf = self;
-    [[RCIMClient sharedRCIMClient] removeNotificationQuietHours:^{
+    [[RCCoreClient sharedCoreClient] removeNotificationQuietHours:^{
 
     }
         error:^(RCErrorCode status) {
@@ -255,6 +255,7 @@
         [self.swch setFrame:CGRectMake(self.view.frame.size.width - self.swch.frame.size.width - 15, 6, 0, 0)];
         [self.swch addTarget:self action:@selector(setSwitchState:) forControlEvents:UIControlEventValueChanged];
         [cell.contentView addSubview:self.swch];
+        cell.detailTextLabel.text = @"";
     } else if (indexPath.section == 1) {
         if (indexPath.row == 0) {
             cell.textLabel.text = RCDLocalizedString(@"Start_time");
@@ -262,6 +263,8 @@
             cell.textLabel.text = RCDLocalizedString(@"end_time");
         }
     } else {
+        cell.textLabel.text = @"";
+        cell.detailTextLabel.text = @"";
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
         [cell.contentView addSubview:self.datePicker];
     }

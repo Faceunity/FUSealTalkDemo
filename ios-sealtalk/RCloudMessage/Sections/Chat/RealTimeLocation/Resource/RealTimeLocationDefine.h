@@ -8,6 +8,7 @@
 
 #ifndef RealTimeLocationDefine_h
 #define RealTimeLocationDefine_h
+#import <RongIMLibCore/RongIMLibCore.h>
 #import <RongIMKit/RCKitCommonDefine.h>
 #define RTLLocalizedString(key) NSLocalizedStringFromTable(key, @"RealTimeLocation", nil)
 
@@ -20,5 +21,8 @@
                     alpha:(float)alphaValue]
 
 #define RTLIsIPad [[UIDevice currentDevice].model containsString:@"iPad"]
+
+#define FRAUD_PREVENTION_TIPS_HEIGHT 63
+
 
 #endif /* RealTimeLocationDefine_h */

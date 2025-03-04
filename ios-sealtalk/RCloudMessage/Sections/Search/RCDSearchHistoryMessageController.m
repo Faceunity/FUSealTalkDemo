@@ -17,6 +17,7 @@
 #import "RCDDBManager.h"
 #import "UIColor+RCColor.h"
 #import "RCDLanguageManager.h"
+#import "RCDCommonString.h"
 
 @interface RCDSearchHistoryMessageController () <UISearchBarDelegate, UIScrollViewDelegate>
 @property (nonatomic, strong) NSArray *resultArray;
@@ -100,7 +101,7 @@
     } else {
         _conversationVC.title = model.name;
     }
-    int unreadCount = [[RCIMClient sharedRCIMClient] getUnreadCount:model.conversationType targetId:model.targetId];
+    int unreadCount = [[RCCoreClient sharedCoreClient] getUnreadCount:model.conversationType targetId:model.targetId];
     _conversationVC.unReadMessage = unreadCount;
     _conversationVC.enableNewComingMessageIcon = YES; //开启消息提醒
     _conversationVC.enableUnreadMessageIcon = YES;
@@ -114,7 +115,40 @@
 
 - (void)searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)searchText {
     self.resultArray = nil;
-    NSArray *array = [[RCIMClient sharedRCIMClient] searchMessages:self.conversationType
+    if (0 == searchText.length) {
+        [self refreshSearchView:searchText];
+        return;
+    }
+    BOOL debugModeSearch = [[NSUserDefaults standardUserDefaults] boolForKey:RCDDebugEnableSearchByMessageTypes];
+    if (debugModeSearch) {
+        RCConversationIdentifier *cider = [[RCConversationIdentifier alloc] initWithConversationIdentifier:self.conversationType targetId:self.targetId channelId:@""];
+        NSArray *objnamelist = @[
+            [RCTextMessage getObjectName],
+            [RCRichContentMessage getObjectName],
+            [RCFileMessage getObjectName]
+        ];
+        [[RCCoreClient sharedCoreClient] searchMessages:cider keyword:searchText objectNameList:objnamelist limit:50 startTime:0 success:^(NSArray<RCMessage *> * _Nonnull messages) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                NSMutableArray *resultArray = [NSMutableArray array];
+                for (RCMessage *message in messages) {
+                    RCDSearchResultModel *messegeModel = [RCDSearchResultModel modelForMessage:message];
+                    messegeModel.searchType = RCDSearchChatHistory;
+                    [resultArray addObject:messegeModel];
+                }
+                self.resultArray = resultArray;
+                [self refreshSearchView:searchText];
+                self.isLoading = NO;
+            });
+            
+        } error:^(RCErrorCode status) {
+            NSLog(@"%s searchMessages failed: %@", __func__, @(status));
+        }];
+        
+        
+        return;
+    }
+    
+    NSArray *array = [[RCCoreClient sharedCoreClient] searchMessages:self.conversationType
                                                           targetId:self.targetId
                                                            keyword:searchText
                                                              count:50
@@ -177,7 +211,7 @@
 
 - (void)searchMoreMessage {
     RCDSearchResultModel *model = self.resultArray[self.resultArray.count - 1];
-    NSArray *array = [[RCIMClient sharedRCIMClient] searchMessages:self.conversationType
+    NSArray *array = [[RCCoreClient sharedCoreClient] searchMessages:self.conversationType
                                                           targetId:self.targetId
                                                            keyword:self.searchBar.text
                                                              count:50

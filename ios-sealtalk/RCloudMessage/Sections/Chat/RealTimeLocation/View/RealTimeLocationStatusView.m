@@ -87,13 +87,13 @@
 
 - (void)setIsExpended:(BOOL)isExpended {
     if (!self.hidden) {
-        CGFloat statusBarHeight = [UIApplication sharedApplication].statusBarFrame.size.height;
+        CGFloat statusBarHeight = [self statusBarHeight];
         if (!isExpended) {
             [self showStatus];
             [UIView beginAnimations:nil context:NULL];
             [UIView setAnimationDuration:0.1f];
             CGRect frame = RC_REAL_TIME_LOCATION_STATUS_FRAME;
-            frame.origin.y = 44 + statusBarHeight;
+            frame.origin.y = 44 + statusBarHeight + FRAUD_PREVENTION_TIPS_HEIGHT;
             self.frame = frame;
             [UIView commitAnimations];
         } else {
@@ -101,12 +101,24 @@
             [UIView beginAnimations:nil context:NULL];
             [UIView setAnimationDuration:0.1f];
             CGRect frame = RC_REAL_TIME_LOCATION_EXPEND_FRAME;
-            frame.origin.y = 44 + statusBarHeight;
+            frame.origin.y = 44 + statusBarHeight + FRAUD_PREVENTION_TIPS_HEIGHT;
             self.frame = frame;
             [UIView commitAnimations];
         }
     }
     _isExpended = isExpended;
+}
+
+- (CGFloat)statusBarHeight {
+    UIWindow *appWindow = [UIApplication sharedApplication].delegate.window;
+
+    UIEdgeInsets safeAreaInsets = UIEdgeInsetsZero;
+    if (@available(iOS 11.0, *)) {
+        safeAreaInsets = appWindow.safeAreaInsets;
+    }
+    
+    CGFloat statusBarHeight = (CGFloat)(safeAreaInsets.top != 0 ? safeAreaInsets.top : [UIApplication sharedApplication].statusBarFrame.size.height);
+    return statusBarHeight;
 }
 
 - (void)showStatus {

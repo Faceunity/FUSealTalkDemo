@@ -27,6 +27,7 @@
 #import "RCDAddFriendViewController.h"
 #import "RCDGroupMemberDetailController.h"
 #import "RCDGroupManager.h"
+#import "RCDSemanticContext.h"
 
 typedef NS_ENUM(NSInteger, RCDPersonOperation) {
     RCDPersonOperationDelete = 0,
@@ -96,7 +97,9 @@ typedef NS_ENUM(NSInteger, RCDFriendDescriptionType) {
 #pragma mark - Private Methods
 
 - (void)configureNavigationBar {
-    self.navigationItem.leftBarButtonItems = [RCKitUtility getLeftNavigationItems:RCResourceImage(@"navigator_btn_back") title:nil target:self action:@selector(leftBarButtonItemPressed:)];
+    UIImage *img = RCResourceImage(@"navigator_btn_back");
+    img = [RCDSemanticContext imageflippedForRTL:img];
+    self.navigationItem.leftBarButtonItems = [RCKitUtility getLeftNavigationItems:img title:nil target:self action:@selector(leftBarButtonItemPressed:)];
 }
 
 - (void)leftBarButtonItemPressed:(id)sender {
@@ -323,9 +326,9 @@ typedef NS_ENUM(NSInteger, RCDFriendDescriptionType) {
                   complete:^(BOOL success) {
                       if (success) {
                           weakSelf.inBlacklist = YES;
-                          [[RCIMClient sharedRCIMClient] clearMessages:ConversationType_PRIVATE
+                          [[RCCoreClient sharedCoreClient] clearMessages:ConversationType_PRIVATE
                                                               targetId:weakSelf.userId];
-                          [[RCIMClient sharedRCIMClient] removeConversation:ConversationType_PRIVATE
+                          [[RCCoreClient sharedCoreClient] removeConversation:ConversationType_PRIVATE
                                                                    targetId:weakSelf.userId];
                           dispatch_async(dispatch_get_main_queue(), ^{
                               [RCDDataSource syncFriendList];

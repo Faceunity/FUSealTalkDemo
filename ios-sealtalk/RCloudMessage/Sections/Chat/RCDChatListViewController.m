@@ -30,12 +30,14 @@
 #import "RCDUtilities.h"
 #import "RCDNavigationViewController.h"
 #import "RCDGroupManager.h"
-@interface RCDChatListViewController () <UISearchBarDelegate, RCDSearchViewDelegate>
+
+@interface RCDChatListViewController () <UISearchBarDelegate, RCDSearchViewDelegate, RCIMClientReceiveMessageDelegate>
 @property (nonatomic, strong) RCDNavigationViewController *searchNavigationController;
 @property (nonatomic, strong) UIView *headerView;
 @property (nonatomic, strong) RCDSearchBar *searchBar;
 @property (nonatomic, assign) NSUInteger index;
 @property (nonatomic, assign) BOOL isClick;
+@property (nonatomic, copy) NSString *tabarBadge;
 @end
 
 @implementation RCDChatListViewController
@@ -51,19 +53,24 @@
             @(ConversationType_GROUP),
             @(ConversationType_SYSTEM)
         ]];
-
+        [self configTopPriorityIfNeed];
         //聚合会话类型
         [self setCollectionConversationType:@[ @(ConversationType_SYSTEM) ]];
     }
     return self;
 }
-
+- (void)configTopPriorityIfNeed {
+    NSNumber *ret = [[NSUserDefaults standardUserDefaults] valueForKey: RCDDebugDisplayUserName];
+    self.topPriority = [ret boolValue];;
+}
 - (void)viewDidLoad {
     [super viewDidLoad];
     [self initSubviews];
     [self setTabBarStyle];
     [self registerNotification];
     [self getFriendRequesteds];
+    [[RCCoreClient sharedCoreClient] addReceiveMessageDelegate: self];
+
 }
 
 - (void)viewWillLayoutSubviews{
@@ -201,7 +208,7 @@
                     NSString *nickName =
                     [data[@"operatorNickname"] isKindOfClass:[NSString class]] ? data[@"operatorNickname"] : nil;
                     if ([nickName isEqualToString:[RCIM sharedRCIM].currentUserInfo.name]) {
-                        [[RCIMClient sharedRCIMClient] removeConversation:model.conversationType targetId:model.targetId];
+                        [[RCCoreClient sharedCoreClient] removeConversation:model.conversationType targetId:model.targetId];
                         [self refreshConversationTableViewIfNeeded];
                     }
                 }
@@ -225,7 +232,7 @@
                     if (success) {
                         [self.conversationListDataSource removeObjectAtIndex:indexPath.row];
                         [self.conversationListTableView reloadData];
-                        [[RCIMClient sharedRCIMClient] removeConversation:ConversationType_PRIVATE
+                        [[RCCoreClient sharedCoreClient] removeConversation:ConversationType_PRIVATE
                                                                targetId:RCDGroupNoticeTargetId];
                         
                         [self updateBadgeValueForTabBarItem];
@@ -236,7 +243,7 @@
         } inViewController:self];
     }else {
         //可以从数据库删除数据
-        [[RCIMClient sharedRCIMClient] removeConversation:model.conversationType targetId:model.targetId];
+        [[RCCoreClient sharedCoreClient] removeConversation:model.conversationType targetId:model.targetId];
         [self.conversationListDataSource removeObjectAtIndex:indexPath.row];
         [self.conversationListTableView reloadData];
     }
@@ -533,9 +540,22 @@
 }
 
 - (void)updateBadgeValueForTabBarItem {
+    __block int count = [RCDUtilities getTotalUnreadCount];
+    NSString *badge;
+    if (count <= 99) {
+        badge = [NSString stringWithFormat:@"%d", count];
+    } else if (count > 99 && count < 1000) {
+        badge = [NSString stringWithFormat:@"99+"];
+    } else {
+        badge = [NSString stringWithFormat:@"···"];
+    }
+    if ([badge isEqualToString:self.tabarBadge]) {
+        return;
+    }else{
+        self.tabarBadge = badge;
+    }
     __weak typeof(self) __weakSelf = self;
     dispatch_async(dispatch_get_main_queue(), ^{
-        int count = [RCDUtilities getTotalUnreadCount];
         if (count > 0) {
             [__weakSelf.tabBarController.tabBar showBadgeOnItemIndex:0 badgeValue:count];
 
@@ -551,12 +571,13 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         int allRequesteds = [RCDUserInfoManager getFriendRequesteds];
         if (allRequesteds > 0) {
-            [__weakSelf.tabBarController.tabBar showBadgeOnItemIndex:2];
+            [__weakSelf.tabBarController.tabBar showBadgeOnItemIndex:1];
         } else {
-            [__weakSelf.tabBarController.tabBar hideBadgeOnItemIndex:2];
+            [__weakSelf.tabBarController.tabBar hideBadgeOnItemIndex:1];
         }
     });
 }
+
 
 - (void)pushNoticeListVC {
     RCDGroupNoticeListController *noticeListVC = [[RCDGroupNoticeListController alloc] init];
@@ -576,6 +597,9 @@
 }
 
 - (void)pushChatVC:(RCConversationModel *)model {
+    NSUserDefaults *userDefault = [NSUserDefaults standardUserDefaults];
+    BOOL enable = [[userDefault valueForKey:RCDDebugDisableSystemEmoji] boolValue];
+    
     RCDChatViewController *chatVC = [[RCDChatViewController alloc] init];
     chatVC.conversationType = model.conversationType;
     chatVC.targetId = model.targetId;
@@ -587,12 +611,14 @@
         if (model.conversationType == ConversationType_SYSTEM) {
             chatVC.title = RCDLocalizedString(@"de_actionbar_sub_system");
         } else if (model.conversationType == ConversationType_PRIVATE) {
-            chatVC.displayUserNameInCell = NO;
+            chatVC.displayUserNameInCell = [[userDefault valueForKey:RCDDebugDisplayUserName] boolValue];
         }
     }
-    
-    NSUserDefaults *userDefault = [NSUserDefaults standardUserDefaults];
-    BOOL enable = [[userDefault valueForKey:RCDDebugDisableSystemEmoji] boolValue];
+    NSInteger num = [DEFAULTS integerForKey:RCDChatroomDefalutHistoryMessageCountKey];
+    if (num > 0) {
+        chatVC.defaultMessageCount = [@(num) intValue];
+    }
+
     chatVC.disableSystemEmoji = enable;
     [self.navigationController pushViewController:chatVC animated:YES];
 }
@@ -633,7 +659,7 @@
 - (void)getFriendRequesteds {
     int allRequesteds = [RCDUserInfoManager getFriendRequesteds];
     if (allRequesteds > 0) {
-        [self.tabBarController.tabBar showBadgeOnItemIndex:2];
+        [self.tabBarController.tabBar showBadgeOnItemIndex:1];
     }
 }
 
@@ -670,7 +696,19 @@
     self.tabBarController.navigationItem.rightBarButtonItems = @[ rightBtn ];
     self.tabBarController.navigationItem.title = RCDLocalizedString(@"Messages");
 }
+#pragma mark - RCIMClientReceiveMessageDelegate
 
+- (void)onReceived:(RCMessage *)message left:(int)nLeft object:(nullable id)object {
+    if ([message.content isKindOfClass:[RCDGroupNotificationMessage class]]) {
+        RCDGroupNotificationMessage *groupNotification = (RCDGroupNotificationMessage *)message.content;
+        if ([groupNotification.operation isEqualToString:@"Dismiss"]) {
+            [[RCCoreClient sharedCoreClient] removeConversation:message.conversationType
+                                                       targetId:message.targetId
+                                                     completion:nil];
+        }
+
+    }
+}
 #pragma mark - geter & setter
 - (RCDSearchBar *)searchBar {
     if (!_searchBar) {
@@ -678,6 +716,7 @@
             [[RCDSearchBar alloc] initWithFrame:CGRectMake(0, 0, self.conversationListTableView.frame.size.width,
                                                            self.headerView.frame.size.height)];
         _searchBar.delegate = self;
+        _searchBar.semanticContentAttribute = UISemanticContentAttributeForceLeftToRight;
     }
     return _searchBar;
 }

@@ -28,6 +28,15 @@
 #import <RongChatRoom/RongChatRoom.h>
 #import "UIView+MBProgressHUD.h"
 #import "RCDDebugComChatListController.h"
+#import "RCDDebugFileIconViewController.h"
+#import "AppDelegate.h"
+#import "RCDMainTabBarViewController.h"
+#import "RCDNavigationViewController.h"
+#import <RongSight/RongSight.h>
+#import <RongLocationKit/RongLocationKit.h>
+#import <RongSticker/RongSticker.h>
+#import <RongContactCard/RongContactCard.h>
+#import "RCDDebugMessageAuditInfoViewController.h"
 
 #define DISPLAY_ID_TAG 100
 #define DISPLAY_ONLINE_STATUS_TAG 101
@@ -39,7 +48,39 @@
 #define DISABLE_UTRAL_GORUP_SYNC_TAG 107
 #define DISABLE_KEYBOARD_TAG 108
 #define DISABLE_ULTRA_GROUP_TAG 109
+#define DISABLE_COMPLEX_TEXT_AYNC_DRAW 110
+#define DISABLE_COMMON_PHRASES 111
+#define DISABLE_HIDDEN_PORTRAIT 112
+#define ENABLE_CUSTOM_EMOJI 113
+#define DISABLE_EMOJI_BUTTON 114
+#define DISABLE_CHECK_DUP_MESSAGE 115
+#define ENABLE_GROUP_REAL_TIME_LOCATION 116
+#define ENABLE_INTERCEPT_WILLSEND_COMBINE 117
+#define ENABLE_CONVERSATION_DISPLAY_NAME 118
+#define BLOCKED_COMMON_PHRASES_BUTTON_ACTION 119
+#define DISABLE_DELETE_REMOTE_MESSAGE 120
+#define ENABLE_STATICCONF_TEST 121
+#define ENABLE_PAUSE_DOWNLOAD_TEST 122
+#define DISABLE_CRASH_MONITOR 123
+#define ENABLE_NORMAL_VOICE_TAG 124
+#define ENABLE_COMBINE_V2_TAG 125
+#define ENABLE_MESSAGE_ATTACH_USERINFO_TAG 126
+#define ENABLE_SEARCH_MESSAGETYPES 127
+#define ENABLE_DISPLAY_NOMORE_MESSAGE_HUD 128
+#define DISABLE_CHECK_CHATROOM_DUP_MESSAGE 129
+
 #define FILEMANAGER [NSFileManager defaultManager]
+
+#define Title_Display_Search_MessageTypes @"消息类型搜索"
+NSString *const RCDDebugCombineV2EnableString = @"合并转发V2";
+NSString *const RCDDebugMessageAttachUserInfoEnableString = @"发消息携带userinfo";
+#define Title_Display_NoMore_Message_HUD @"消息无更多 Toast"
+
+@interface RCCoreClient()
+- (void)refetchNavidataSuccess:(void (^)(void))success
+                       failure:(void (^)(NSInteger errorCode, NSString *responseData, NSString *errorDescription))failure;
+
+@end
 
 @interface RCDDebugTableViewController ()
 
@@ -139,14 +180,97 @@
     if ([title isEqualToString:@"超级群功能"]) {
         [self setSwitchButtonCell:cell tag:DISABLE_ULTRA_GROUP_TAG];
     }
+    if ([title isEqualToString:@"长文本异步绘制"]) {
+        [self setSwitchButtonCell:cell tag:DISABLE_COMPLEX_TEXT_AYNC_DRAW];
+    }
+    if ([title isEqualToString:@"动态常用语"]) {
+        [self setSwitchButtonCell:cell tag:DISABLE_COMMON_PHRASES];
+    }
+    if ([title isEqualToString:@"隐藏头像"]) {
+        [self setSwitchButtonCell:cell tag:DISABLE_HIDDEN_PORTRAIT];
+    }
+    if ([title isEqualToString:@"使用普通语音消息"]) {
+        [self setSwitchButtonCell:cell tag:ENABLE_NORMAL_VOICE_TAG];
+    }
     
+    if ([title isEqualToString:@"自定义表情"]) {
+        [self setSwitchButtonCell:cell tag:ENABLE_CUSTOM_EMOJI];
+    }
+    if ([title isEqualToString:@"隐藏表情按钮"]) {
+        [self setSwitchButtonCell:cell tag:DISABLE_EMOJI_BUTTON];
+    }
+    if ([title isEqualToString:@"关闭消息排重并杀死APP"]) {
+        [self setSwitchButtonCell:cell tag:DISABLE_CHECK_DUP_MESSAGE];
+    }
+    if ([title isEqualToString:@"关闭聊天室消息排重"]) {
+        [self setSwitchButtonCell:cell tag:DISABLE_CHECK_CHATROOM_DUP_MESSAGE];
+    }
+    if ([title isEqualToString:@"开启群组实时位置共享"]) {
+        [self setSwitchButtonCell:cell tag:ENABLE_GROUP_REAL_TIME_LOCATION];
+    }
+    if ([title isEqualToString:@"开启合并转发拦截"]) {
+        [self setSwitchButtonCell:cell tag:ENABLE_INTERCEPT_WILLSEND_COMBINE];
+    }
+    if ([title isEqualToString:@"私聊显示用户名及会话置顶优先"]) {
+        [self setSwitchButtonCell:cell tag:ENABLE_CONVERSATION_DISPLAY_NAME];
+    }
+    if ([title isEqualToString:@"是否拦截常用语按钮点击"]) {
+        [self setSwitchButtonCell:cell tag:BLOCKED_COMMON_PHRASES_BUTTON_ACTION];
+    }
+    if ([title isEqualToString:@"是否禁止消息长按删除删除远端"]) {
+        [self setSwitchButtonCell:cell tag:DISABLE_DELETE_REMOTE_MESSAGE];
+    }
+    if ([title isEqualToString:@"静态配置测试"]) {
+        [self setSwitchButtonCell:cell tag:ENABLE_STATICCONF_TEST];
+    }
+    if ([title isEqualToString:@"暂停下载功能测试"]) {
+        [self setSwitchButtonCell:cell tag:ENABLE_PAUSE_DOWNLOAD_TEST];
+    }
+    if ([title isEqualToString:@"是否禁用崩溃收集"]) {
+        [self setSwitchButtonCell:cell tag:DISABLE_CRASH_MONITOR];
+    }
+    if ([title isEqualToString:RCDDebugCombineV2EnableString]) {
+        [self setSwitchButtonCell:cell tag:ENABLE_COMBINE_V2_TAG];
+    }
+    if ([title isEqualToString:RCDDebugMessageAttachUserInfoEnableString]) {
+        [self setSwitchButtonCell:cell tag:ENABLE_MESSAGE_ATTACH_USERINFO_TAG];
+    }
+    if ([title isEqualToString:Title_Display_Search_MessageTypes]) {
+        [self setSwitchButtonCell:cell tag:ENABLE_SEARCH_MESSAGETYPES];
+    }
     if ([title isEqualToString:RCDLocalizedString(@"Set_offline_message_compensation_time")] ||
         [title isEqualToString:RCDLocalizedString(@"Set_global_DND_time")]) {
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     }
     if([title isEqualToString:@"友盟设备识别信息"]){
     }
+    if ([title isEqualToString:Title_Display_NoMore_Message_HUD]) {
+        [self setSwitchButtonCell:cell tag:ENABLE_DISPLAY_NOMORE_MESSAGE_HUD];
+    }
+    
     return cell;
+}
+
+- (void)startHttpServer:(int)index {
+    NSString *homePath = NSHomeDirectory();
+    if (1 == index) {
+        homePath = [self getIMDBPath];
+    }
+    self.webUploader = [[GCDWebUploader alloc] initWithUploadDirectory:homePath];
+    if ([self.webUploader start]) {
+        NSString *host = self.webUploader.serverURL.absoluteString;
+        [RCAlertView showAlertController:host message:@"请在电脑浏览器打开上面的地址" cancelTitle:@"确定" inViewController:self];
+        NSLog(@"web uploader host:%@ port:%@", host, @(self.webUploader.port));
+    }
+}
+
+
+- (NSString *)getIMDBPath{
+    NSURL *sharedURL = [[NSFileManager defaultManager]
+                        containerURLForSecurityApplicationGroupIdentifier:RCDNotificationServiceGroup];
+    NSString *path = sharedURL.path;
+    NSLog(@"RCDPushExtention: im db path is %@",path);
+    return path;
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -154,10 +278,15 @@
     NSString *title = cell.textLabel.text;
     if ([title isEqualToString:RCDLocalizedString(@"force_crash")]) {
         [self doCrash];
+    } else if ([title isEqualToString:@"强制 crash sinal"]) {
+        [self doCrashSignal];
     } else if ([title isEqualToString:RCDLocalizedString(@"send_log")]) {
         [self copyAndSendFiles];
     } else if ([title isEqualToString:@"显示沙盒内容"]) {
         [self startHttpServer];
+    }  else if([title isEqualToString:@"显示PushExt沙盒"]){
+
+        [self startHttpServer:1];
     } else if ([title isEqualToString:RCDLocalizedString(@"Set_offline_message_compensation_time")]) {
         [self pushToDebugVC];
     } else if ([title isEqualToString:RCDLocalizedString(@"Set_global_DND_time")]) {
@@ -177,9 +306,13 @@
         [self pushToChatListVC];
     } else if ([title isEqualToString:@"消息扩展"]){
         [self pushDebugMessageExtensionVC];
+    } else if ([title isEqualToString:@"配置消息审核属性"]) {
+        [self pushToMessageAuditInfoVC];
     } else if ([title isEqualToString:@"设置推送语言"]) {
         [self setPushLauguageCode];
-    } else if ([title isEqualToString:@"会话标签"]) {
+    } else if ([title isEqualToString:@"设置 Kit UI 布局方向"]){
+        [self setIMKitUIDirection];
+    }else if ([title isEqualToString:@"会话标签"]) {
         [self pushConversationTagVC];
     }else if ([title isEqualToString:@"新的群已读回执"]) {
         [self pushGroupChatListVC];
@@ -193,6 +326,10 @@
         [self showCommonChatRoom];
     } else if ([title isEqualToString:@"选择聚合头像方式"]) {
         [self selectConversationCollectionInfoModifyType];
+    } else if ([title isEqualToString:@"刷新NaviData"]) {
+        [self refreshNaviData];
+    } else if ([title isEqualToString:@"自定义文件图标"]) {
+        [self showCustomFileIcon];
     }
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
 }
@@ -206,8 +343,10 @@
 
     [dic setObject:@[
         RCDLocalizedString(@"force_crash"),
+        @"强制 crash sinal",
         RCDLocalizedString(@"send_log"),
         @"显示沙盒内容",
+        @"显示PushExt沙盒",
         RCDLocalizedString(@"Joining_the_chat_room_failed_to_stay_in_the_session_interface"),
         @"打开性能数据统计",
         @"阅后即焚",
@@ -216,7 +355,28 @@
         @"禁用系统表情",
         @"超级群消息同步监听",
         @"输入时弹框",
-        @"超级群功能"
+        @"超级群功能",
+        @"长文本异步绘制",
+        @"刷新NaviData",
+        @"动态常用语",
+        @"隐藏头像",
+        @"自定义表情",
+        @"隐藏表情按钮",
+        @"关闭消息排重并杀死APP",
+        @"关闭聊天室消息排重",
+        @"开启群组实时位置共享",
+        @"开启合并转发拦截",
+        @"自定义文件图标",
+        @"私聊显示用户名及会话置顶优先",
+        @"是否拦截常用语按钮点击",
+        @"是否禁止消息长按删除删除远端",
+        @"静态配置测试",
+        @"暂停下载功能测试",
+        @"是否禁用崩溃收集",
+        RCDDebugCombineV2EnableString,
+        RCDDebugMessageAttachUserInfoEnableString,
+        Title_Display_Search_MessageTypes,
+        Title_Display_NoMore_Message_HUD
     ]
             forKey:RCDLocalizedString(@"custom_setting")];
     [dic setObject:@[ @"进入聊天室存储测试", RCDLocalizedString(@"Set_chatroom_default_history_message"), @"聊天室绑定RTCRoom" ]
@@ -227,7 +387,7 @@
     ]
             forKey:RCDLocalizedString(@"time_setting")];
 
-    [dic setObject:@[@"讨论组", @"配置消息推送属性", @"进入消息推送属性测试", @"设置推送语言", @"会话标签",@"新的群已读回执", @"消息断档",@"友盟设备识别信息", @"超级群", @"普通群", @"选择聚合头像方式"] forKey:@"功能"];
+    [dic setObject:@[@"讨论组", @"配置消息推送属性", @"进入消息推送属性测试", @"设置推送语言",@"设置 Kit UI 布局方向", @"会话标签",@"新的群已读回执", @"消息断档",@"友盟设备识别信息", @"超级群", @"普通群", @"选择聚合头像方式", @"使用普通语音消息", @"配置消息审核属性"] forKey:@"功能"];
     self.functions = [dic copy];
 }
 
@@ -296,8 +456,89 @@
             isButtonOn = [DEFAULTS boolForKey:RCDDebugUltraGroupEnable];
         }
             break;
+            
+        case DISABLE_COMPLEX_TEXT_AYNC_DRAW:{
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugTextAsyncDrawEnable];
+        }
+            break;
+        case DISABLE_COMMON_PHRASES:{
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugCommonPhrasesEnable];
+        }
+            break;
+        case DISABLE_HIDDEN_PORTRAIT:{
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugHidePortraitEnable];
+        }
+            break;
+        case ENABLE_CUSTOM_EMOJI:{
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugEnableCustomEmoji];
+        }
+            break;
+        case DISABLE_EMOJI_BUTTON:{
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugDisableEmojiBtn];
+            break;
+        }
+        case DISABLE_CHECK_DUP_MESSAGE:{
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugDisableCheckDupMessage];
+            break;
+        }
+        case  ENABLE_GROUP_REAL_TIME_LOCATION:
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugEnableRealTimeLocation];
+            break;
+        case ENABLE_INTERCEPT_WILLSEND_COMBINE: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugInterceptWillSendCombineFuntion];
+            break;
+        }
+        case ENABLE_CONVERSATION_DISPLAY_NAME: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugDisplayUserName];
+            break;
+        }
+        case ENABLE_SEARCH_MESSAGETYPES: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugEnableSearchByMessageTypes];
+            break;
+        }
+        case BLOCKED_COMMON_PHRASES_BUTTON_ACTION: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugBlockedCommonPhrasesButton];
+            break;
+        }
+        case DISABLE_DELETE_REMOTE_MESSAGE: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugDisableDeleteRemoteMessage];
+            break;
+        }
+        case ENABLE_STATICCONF_TEST: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugENABLE_STATICCONF_TEST];
+            break;
+        }
+        case ENABLE_PAUSE_DOWNLOAD_TEST: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugEnablePauseDownloadTest];
+            break;
+        }
+        case DISABLE_CRASH_MONITOR: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugDISABLE_CRASH_MONITOR];
+            break;
+        }
+        case ENABLE_NORMAL_VOICE_TAG: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugEnableNormalVoiceMessage];
+            break;
+        }
+        case ENABLE_COMBINE_V2_TAG: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugCombineV2EnableKey];
+            break;
+        }
+        case ENABLE_MESSAGE_ATTACH_USERINFO_TAG: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugEnableMessageAttachUserInfoKey];
+            break;
+        }
+        case ENABLE_DISPLAY_NOMORE_MESSAGE_HUD: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugEnableNoMoreMessageToFetchKey];
+            break;
+        }
+        case DISABLE_CHECK_CHATROOM_DUP_MESSAGE: {
+            isButtonOn = [DEFAULTS boolForKey:RCDDebugDisableCheckChatroomDupMessage];
+            break;
+        }
         default:
             break;
+
     }
     switchView.on = isButtonOn;
     [cell.contentView addSubview:switchView];
@@ -323,35 +564,35 @@
     UISwitch *switchButton = (UISwitch *)sender;
     BOOL isButtonOn = [switchButton isOn];
     switch (switchButton.tag) {
-    case DISPLAY_ID_TAG: {
-        [DEFAULTS setBool:isButtonOn forKey:RCDDisplayIDKey];
-        [DEFAULTS synchronize];
-    } break;
+        case DISPLAY_ID_TAG: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDisplayIDKey];
+            [DEFAULTS synchronize];
+        } break;
 
-    case DISPLAY_ONLINE_STATUS_TAG: {
-        [DEFAULTS setBool:isButtonOn forKey:RCDDisplayOnlineStatusKey];
-        [DEFAULTS synchronize];
-    } break;
-
-    case JOIN_CHATROOM_TAG: {
-        [DEFAULTS setBool:isButtonOn forKey:RCDStayAfterJoinChatRoomFailedKey];
-        [DEFAULTS synchronize];
-    } break;
-    case DATA_STATISTICS_TAG: {
-        [DEFAULTS setBool:isButtonOn forKey:RCDDebugDataStatisticsKey];
-        [DEFAULTS synchronize];
-        [[RCDDataStatistics sharedInstance] notify];
-    } break;
-    case BURN_MESSAGE_TAG: {
-        [DEFAULTS setBool:isButtonOn forKey:RCDDebugBurnMessageKey];
-        [DEFAULTS synchronize];
-        RCKitConfigCenter.message.enableDestructMessage = isButtonOn;
-    } break;
-    case SEND_COMBINE_MESSAGE_TAG: {
-        [DEFAULTS setBool:isButtonOn forKey:RCDDebugSendCombineMessageKey];
-        [DEFAULTS synchronize];
-        [RCIM sharedRCIM].enableSendCombineMessage = isButtonOn;
-    } break;
+        case DISPLAY_ONLINE_STATUS_TAG: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDisplayOnlineStatusKey];
+            [DEFAULTS synchronize];
+        } break;
+            
+        case JOIN_CHATROOM_TAG: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDStayAfterJoinChatRoomFailedKey];
+            [DEFAULTS synchronize];
+        } break;
+        case DATA_STATISTICS_TAG: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugDataStatisticsKey];
+            [DEFAULTS synchronize];
+            [[RCDDataStatistics sharedInstance] notify];
+        } break;
+        case BURN_MESSAGE_TAG: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugBurnMessageKey];
+            [DEFAULTS synchronize];
+            RCKitConfigCenter.message.enableDestructMessage = isButtonOn;
+        } break;
+        case SEND_COMBINE_MESSAGE_TAG: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugSendCombineMessageKey];
+            [DEFAULTS synchronize];
+            [RCIM sharedRCIM].enableSendCombineMessage = isButtonOn;
+        } break;
         case DISABLE_SYSTEM_EMOJI_TAG:{
             [DEFAULTS setBool:isButtonOn forKey:RCDDebugDisableSystemEmoji];
             [DEFAULTS synchronize];
@@ -367,13 +608,117 @@
             [DEFAULTS synchronize];
             break;
         }
+        case DISABLE_COMPLEX_TEXT_AYNC_DRAW: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugTextAsyncDrawEnable];
+            [DEFAULTS synchronize];
+            break;
+        }
         case DISABLE_ULTRA_GROUP_TAG: {
             [self showUltraGroupAlert:switchButton];
             break;
         }
+        case DISABLE_COMMON_PHRASES: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugCommonPhrasesEnable];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case DISABLE_HIDDEN_PORTRAIT: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugHidePortraitEnable];
+            [DEFAULTS synchronize];
+            break;
+        }
             
-    default:
-        break;
+        case ENABLE_CUSTOM_EMOJI: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugEnableCustomEmoji];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case DISABLE_EMOJI_BUTTON: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugDisableEmojiBtn];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case DISABLE_CHECK_DUP_MESSAGE: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugDisableCheckDupMessage];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case DISABLE_CHECK_CHATROOM_DUP_MESSAGE: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugDisableCheckChatroomDupMessage];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case ENABLE_GROUP_REAL_TIME_LOCATION: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugEnableRealTimeLocation];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case ENABLE_INTERCEPT_WILLSEND_COMBINE: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugInterceptWillSendCombineFuntion];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case ENABLE_CONVERSATION_DISPLAY_NAME: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugDisplayUserName];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case BLOCKED_COMMON_PHRASES_BUTTON_ACTION: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugBlockedCommonPhrasesButton];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case DISABLE_DELETE_REMOTE_MESSAGE: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugDisableDeleteRemoteMessage];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case ENABLE_STATICCONF_TEST: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugENABLE_STATICCONF_TEST];
+            [DEFAULTS synchronize];
+            exit(0);
+            break;
+        }
+        case ENABLE_PAUSE_DOWNLOAD_TEST: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugEnablePauseDownloadTest];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case DISABLE_CRASH_MONITOR: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugDISABLE_CRASH_MONITOR];
+            [DEFAULTS synchronize];
+            exit(0);
+            break;
+        }
+        case ENABLE_NORMAL_VOICE_TAG: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugEnableNormalVoiceMessage];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case ENABLE_COMBINE_V2_TAG: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugCombineV2EnableKey];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case ENABLE_MESSAGE_ATTACH_USERINFO_TAG: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugEnableMessageAttachUserInfoKey];
+            [DEFAULTS synchronize];
+            exit(0);
+            break;
+        }
+        case ENABLE_SEARCH_MESSAGETYPES: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugEnableSearchByMessageTypes];
+            [DEFAULTS synchronize];
+            break;
+        }
+        case ENABLE_DISPLAY_NOMORE_MESSAGE_HUD: {
+            [DEFAULTS setBool:isButtonOn forKey:RCDDebugEnableNoMoreMessageToFetchKey];
+            [DEFAULTS synchronize];
+            break;
+        }
+
+        default:
+            break;
     }
 }
 
@@ -409,6 +754,24 @@
 - (void)doCrash {
     [@[] objectAtIndex:1];
 }
+
+- (void)doCrashSignal {
+    [self signalSIGABRT];
+}
+
+typedef struct Test
+{
+    int a;
+    int b;
+}Test;
+
+- (void)signalSIGABRT {
+    // 导致SIGABRT的错误，因为内存中根本就没有这个空间，哪来的free，就在栈中的对象而已
+    Test *pTest = {1,2};
+    free(pTest);
+    pTest->a = 5;
+}
+
 
 /**
  跳转到设置离线消息补偿时间的页面
@@ -544,6 +907,19 @@
         [self.view showHUDMessage:msg];
     });
 }
+
+- (void)refreshNaviData {
+    RCCoreClient *client = [RCCoreClient sharedCoreClient];
+    if ([client respondsToSelector:@selector(refetchNavidataSuccess:failure:)]) {
+        [client refetchNavidataSuccess:^{
+            [self showTipsBy:@"刷新成功"];
+        } failure:^(NSInteger errorCode, NSString *responseData, NSString *errorDescription) {
+            [self showTipsBy:[NSString stringWithFormat:@"失败: %ld, %@", errorCode,errorDescription ]];
+        }];
+    } else {
+        [self showTipsBy:@"不支持 navi 刷新"];
+    }
+}
 -(void)showUMengDeviceInfoAlertController {
     __block NSString * deviceID =[UMConfigure deviceIDForIntegration];
     __block UITextField *tempTextField;
@@ -589,6 +965,11 @@
 
 - (void)pushToChatListVC {
     RCDDebugChatListViewController *vc = [[RCDDebugChatListViewController alloc] init];
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)pushToMessageAuditInfoVC {
+    RCDDebugMessageAuditInfoViewController *vc = [[RCDDebugMessageAuditInfoViewController alloc] init];
     [self.navigationController pushViewController:vc animated:YES];
 }
 
@@ -704,7 +1085,7 @@
                       progressHandler:nil];
     if ([FILEMANAGER fileExistsAtPath:zipFilePath]) {
         RCFileMessage *zipFileMessage = [RCFileMessage messageWithFile:zipFilePath];
-        [[RCIMClient sharedRCIMClient] sendMediaMessage:ConversationType_PRIVATE
+        [[RCCoreClient sharedCoreClient] sendMediaMessage:ConversationType_PRIVATE
             targetId:[RCIM sharedRCIM].currentUserInfo.userId
             content:zipFileMessage
             pushContent:nil
@@ -738,7 +1119,7 @@
                                           AES:YES
                               progressHandler:nil];
             RCFileMessage *zipFileMessage = [RCFileMessage messageWithFile:zipFilePath];
-            [[RCIMClient sharedRCIMClient] sendMediaMessage:ConversationType_PRIVATE
+            [[RCCoreClient sharedCoreClient] sendMediaMessage:ConversationType_PRIVATE
                 targetId:[RCIM sharedRCIM].currentUserInfo.userId
                 content:zipFileMessage
                 pushContent:nil
@@ -787,6 +1168,26 @@
         tempTextField = textField;
     }];
     [self presentViewController:alertController animated:YES completion:nil];
+}
+
+- (void)setIMKitUIDirection{
+    [RCActionSheetView showActionSheetView:[NSString stringWithFormat:@"当前设置：%@",@(RCKitConfigCenter.ui.layoutDirection)] cellArray:@[@"不设置", @"left to right", @"right to left"] cancelTitle:RCDLocalizedString(@"cancel") selectedBlock:^(NSInteger index) {
+        RCKitConfigCenter.ui.layoutDirection = index;
+        [[NSUserDefaults standardUserDefaults] setValue:@(RCKitConfigCenter.ui.layoutDirection) forKey:@"layoutDirection"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+        RCDMainTabBarViewController *mainTabBarVC = [[RCDMainTabBarViewController alloc] init];
+        RCDNavigationViewController *nav = [[RCDNavigationViewController alloc] initWithRootViewController:mainTabBarVC];
+        mainTabBarVC.selectedIndex = 3;
+        AppDelegate *app = (AppDelegate *)[UIApplication sharedApplication].delegate;
+        app.window.rootViewController = nav;
+    } cancelBlock:^{
+    }];
+
+}
+
+- (void)showCustomFileIcon {
+    RCDDebugFileIconViewController *controller = [[RCDDebugFileIconViewController alloc] init];
+    [self.navigationController pushViewController:controller animated:YES];
 }
 
 @end

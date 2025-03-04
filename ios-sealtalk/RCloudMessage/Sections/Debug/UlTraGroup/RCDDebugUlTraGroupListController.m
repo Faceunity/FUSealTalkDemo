@@ -11,10 +11,23 @@
 #import "RCDUIBarButtonItem.h"
 #import "RCDDebugUltraGroupSendMessage.h"
 #import "UIView+MBProgressHUD.h"
+#import "RCDSearchBar.h"
+#import "RCDDebugUltraGroupSearchViewController.h"
+#import "RCDNavigationViewController.h"
 
-@interface RCDDebugUltraGroupListController ()
+@interface RCConversationListViewController ()
+
+- (void)conversationStatusChanged:(NSNotification *)notification;
+
+@end
+
+@interface RCDDebugUltraGroupListController () <UISearchBarDelegate>
 
 @property (nonatomic, strong) UITextField *targetIdTextField;
+
+@property (nonatomic, strong) UIView *headerView;
+@property (nonatomic, strong) RCDSearchBar *searchBar;
+@property (nonatomic, strong) RCDNavigationViewController *searchNavigationController;
 
 @end
 
@@ -35,6 +48,8 @@
     [super viewDidLoad];
     // Do any additional setup after loading the view.
     [self setNavi];
+    
+    self.conversationListTableView.tableHeaderView = self.searchBar;
 }
 
 - (void)setNavi {
@@ -78,7 +93,7 @@
 
 
 - (void)toChatVCWithUserId:(NSString *)userId {
-    [[RCIMClient sharedRCIMClient] clearMessages:ConversationType_GROUP targetId:userId];
+    [[RCCoreClient sharedCoreClient] clearMessages:ConversationType_GROUP targetId:userId];
     RCDDebugUltraGroupChatViewController *chatVC = [[RCDDebugUltraGroupChatViewController alloc] initWithConversationType:ConversationType_ULTRAGROUP targetId:userId];
 
     chatVC.title = userId;
@@ -112,30 +127,29 @@
     
     if (model.conversationType == ConversationType_ULTRAGROUP) {
         int totalMentionCount = [[RCChannelClient sharedChannelManager] getUltraGroupUnreadMentionedCount:model.targetId];
-        
-        int conversationMentionCount = 0;
+      
+        int conversationMentionCount = 0,mentionMe = 0;
         //超级群未读
         if (model.channelId.length == 0) {
             RCConversation *conversation = 
                 [[RCCoreClient sharedCoreClient] getConversation:ConversationType_ULTRAGROUP 
                                                         targetId:model.targetId];
             conversationMentionCount = conversation.mentionedCount;
+            mentionMe = conversation.mentionedMeCount;
         } else {
             RCConversation *conversation =
                 [[RCChannelClient sharedChannelManager] getConversation:ConversationType_ULTRAGROUP
                                                         targetId:model.targetId 
                                                               channelId:model.channelId];
             conversationMentionCount = conversation.mentionedCount;
+            mentionMe = conversation.mentionedMeCount;
         }
-        
+        NSString *mentionString = @"";
         if (totalMentionCount > 0 && conversationMentionCount > 0) {
-            UILabel *label = [[UILabel alloc] init];
-            label.frame = CGRectMake(0, 0, 80, 20);
-            label.textColor = [UIColor redColor];
-            label.backgroundColor = [UIColor yellowColor];
-            [((RCConversationCell *)cell).conversationTagView addSubview:label];
-            label.text = [NSString stringWithFormat:@"%d-%d", conversationMentionCount, totalMentionCount];
+            mentionString = [NSString stringWithFormat:@"%d-%d", conversationMentionCount, totalMentionCount];
         }
+        NSString *text = [NSString stringWithFormat:@"L%ld [%d:%d:%d] ",model.notificationLevel, conversationMentionCount, totalMentionCount,mentionMe];
+        [self configureTagViewFor:cell text:text];
     }
     
     ((RCConversationCell *)cell).conversationTitle.text = [NSString stringWithFormat:@"%@【%@】",model.targetId,model.channelId];
@@ -160,6 +174,89 @@
         }
     }
     return dataSources;
+}
+
+#pragma mark - NotificationLevel
+
+- (void)updateConversationModelBy:(RCConversationStatusInfo *)statusInfo {
+    for (int i = 0; i < self.conversationListDataSource.count; i++) {
+        RCConversationModel *conversationModel = self.conversationListDataSource[i];
+        BOOL isSameConversation = [conversationModel.targetId isEqualToString:statusInfo.targetId] &&
+        (conversationModel.conversationType == statusInfo.conversationType);
+        BOOL isSameChannel = [conversationModel.channelId isEqualToString:statusInfo.channelId];
+        if (isSameConversation && isSameChannel) {
+            conversationModel.notificationLevel = statusInfo.notificationLevel;
+        }
+    }
+}
+
+- (void)conversationStatusChanged:(NSNotification *)notification {
+    NSArray<RCConversationStatusInfo *> *conversationStatusInfos = notification.object;
+    for (RCConversationStatusInfo *statusInfo in conversationStatusInfos) {
+        [self updateConversationModelBy:statusInfo];
+    }
+    [super conversationStatusChanged:notification];
+}
+
+- (void)configureTagViewFor:(RCConversationBaseCell *)cell
+                      text:(NSString *)text {
+    if ([cell isKindOfClass:[RCConversationCell class]]) {
+        RCConversationCell *cCell = (RCConversationCell *)cell;
+        UIView *tagView = [self channelTypeViewByLevel:text];
+        for (UIView *view in cCell.conversationTagView.subviews) {
+            [view removeFromSuperview];
+        }
+        [cCell.conversationTagView addSubview:tagView];
+    }
+}
+
+- (UIView *)channelTypeViewByLevel:(NSString *)text{
+    UILabel *lab = [UILabel new];
+    lab.textColor = [UIColor whiteColor];
+    lab.text = text;
+    lab.backgroundColor = HEXCOLOR(0x0099fff);
+    lab.font = [UIFont boldSystemFontOfSize:8];
+    lab.layer.cornerRadius = 2;
+    lab.layer.masksToBounds = YES;
+    [lab sizeToFit];
+    return lab;
+}
+
+- (UIView *)headerView {
+    if (!_headerView) {
+        _headerView =
+            [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.conversationListTableView.frame.size.width, 44)];
+        if (@available(iOS 11.0, *)) {
+            _headerView.frame = CGRectMake(0, 0, self.conversationListTableView.frame.size.width, 56);
+        }
+    }
+    return _headerView;
+}
+
+- (RCDSearchBar *)searchBar {
+    if (!_searchBar) {
+        _searchBar =
+            [[RCDSearchBar alloc] initWithFrame:CGRectMake(0, 0, self.conversationListTableView.frame.size.width,
+                                                           self.headerView.frame.size.height)];
+        _searchBar.delegate = self;
+    }
+    return _searchBar;
+}
+
+#pragma mark - UISearchBarDelegate
+
+- (void)searchBarTextDidBeginEditing:(UISearchBar *)searchBar {
+    RCDDebugUltraGroupSearchViewController *searchViewController = [[RCDDebugUltraGroupSearchViewController alloc] init];
+    self.searchNavigationController = [[RCDNavigationViewController alloc] initWithRootViewController:searchViewController];
+    self.searchNavigationController.modalPresentationStyle = UIModalPresentationFullScreen;
+    [self presentViewController:self.searchNavigationController animated:NO completion:^{
+    }];
+}
+
+#pragma mark - RCDSearchViewDelegate
+
+- (void)searchViewControllerDidClickCancel {
+    [self.searchNavigationController dismissViewControllerAnimated:NO completion:nil];
 }
 
 @end

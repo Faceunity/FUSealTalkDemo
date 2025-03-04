@@ -106,10 +106,7 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
                 [weakVC done];
             }];
 
-    _toolBar.numberLabel.text =
-        [NSString stringWithFormat:@"%@ %zi %@", RCCallKitLocalizedString(@"bottom_result_view_choosed_person_prefix"),
-                                   self.selectUserIds.count + 1,
-                                   RCCallKitLocalizedString(@"bottom_result_view_choosed_person_subfix")];
+    _toolBar.numberLabel.text = [NSString stringWithFormat:RCCallKitLocalizedString(@"bottom_result_view_choosed_person"), self.existUserIdList.count];
     _toolBar.numberLabel.textColor = [UIColor colorWithRed:168 / 255.0
                                                      green:168 / 255.0
                                                       blue:168 / 255.0
@@ -230,7 +227,9 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
 
 #pragma mark - UITableViewDataSource
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return self.resultUserIdList.count;
+    NSInteger count = tableView == self.tableView ? self.listingUserIdList.count :self.resultUserIdList.count;
+//    return self.resultUserIdList.count;
+    return count;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -238,6 +237,9 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
     static NSString *reusableSearchID = @"RongVoIPSelectMembersCellsId";
     NSString *resuseID = tableView == self.tableView ? reusableID : reusableSearchID;
     RCCallSelectingMemberCell *cell = [self.tableView dequeueReusableCellWithIdentifier:resuseID];
+    
+    NSArray *userIds = (tableView == self.tableView ? self.listingUserIdList :self.resultUserIdList);
+    
 
     if (self.resultUserIdList.count != self.listingUserIdList.count) {
         cell = [self.tableView dequeueReusableCellWithIdentifier:reusableSearchID];
@@ -247,7 +249,8 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
     }
     cell.tintColor = [UIColor colorWithRed:58 / 255.0 green:145 / 255.0 blue:243 / 255.0 alpha:1 / 1.0];
 
-    NSString *userId = self.resultUserIdList[indexPath.row];
+//    NSString *userId = userIds[indexPath.row];
+    NSString *userId = [userIds objectAtIndex:indexPath.row];
     if ([self.existUserIdList containsObject:userId]) {
         [cell.selectedImageView setImage:[RCCallKitUtility imageFromVoIPBundle:@"voip/deselect.png"]];
     } else if ([self.selectUserIds containsObject:userId]) {
@@ -277,7 +280,9 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    NSString *userId = self.resultUserIdList[indexPath.row];
+    
+    NSArray *userIds = (tableView == self.tableView ? self.listingUserIdList :self.resultUserIdList);
+    NSString *userId = [userIds objectAtIndex:indexPath.row];
     if (![self.existUserIdList containsObject:userId]) {
         if ([self.selectUserIds containsObject:userId]) {
             [self.selectUserIds removeObject:userId];
@@ -288,13 +293,13 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
 
     if ((self.selectUserIds.count + self.existUserIdList.count > [RCCall sharedRCCall].maxMultiAudioCallUserNumber) &&
         self.mediaType == RCCallMediaAudio) {
-        [self loadErrorAlert:[NSString stringWithFormat:RCCallKitLocalizedString(@"VoIPAudioCallMaxNumSelectMember"),
+        [self loadErrorAlert:[NSString stringWithFormat:RCCallKitLocalizedString(@"VoIPCallMaxNumInviteMember"),
                                                         [RCCall sharedRCCall].maxMultiAudioCallUserNumber]];
         [self.selectUserIds removeObject:userId];
     } else if ((self.selectUserIds.count + self.existUserIdList.count >
                 [RCCall sharedRCCall].maxMultiVideoCallUserNumber) &&
                self.mediaType == RCCallMediaVideo) {
-        [self loadErrorAlert:[NSString stringWithFormat:RCCallKitLocalizedString(@"VoIPVideoCallMaxNumSelectMember"),
+        [self loadErrorAlert:[NSString stringWithFormat:RCCallKitLocalizedString(@"VoIPCallMaxNumInviteMember"),
                                                         [RCCall sharedRCCall].maxMultiVideoCallUserNumber]];
         [self.selectUserIds removeObject:userId];
     }
@@ -319,7 +324,7 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
 
     _toolBar.numberLabel.text =
         [NSString stringWithFormat:@"%@ %zi %@", RCCallKitLocalizedString(@"bottom_result_view_choosed_person_prefix"),
-                                   self.selectUserIds.count + 1,
+                                   self.selectUserIds.count + self.existUserIdList.count,
                                    RCCallKitLocalizedString(@"bottom_result_view_choosed_person_subfix")];
 
     if (self.selectUserIds.count > 0) {
@@ -366,11 +371,11 @@ typedef void (^CompleteBlock)(NSArray *addUserIdList);
     NSDictionary *userInfoDic = notification.object;
     NSString *updateUserId = userInfoDic[@"userId"];
 
-    for (NSString *userId in self.resultUserIdList) {
+    for (NSString *userId in self.listingUserIdList) {
         if ([updateUserId isEqualToString:userId]) {
             __weak typeof(self) weakSelf = self;
             dispatch_async(dispatch_get_main_queue(), ^{
-                NSIndexPath *index = [NSIndexPath indexPathForRow:[weakSelf.resultUserIdList indexOfObject:userId]
+                NSIndexPath *index = [NSIndexPath indexPathForRow:[weakSelf.listingUserIdList indexOfObject:userId]
                                                         inSection:0];
                 UITableViewCell *cell = [weakSelf.tableView cellForRowAtIndexPath:index];
                 if (cell) {

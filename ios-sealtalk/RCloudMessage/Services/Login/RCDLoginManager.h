@@ -13,28 +13,27 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface RCDLoginManager : NSObject
 
-// 用户登录
-+ (void)loginWithPhone:(NSString *)phone
-              password:(NSString *)password
-                region:(NSString *)region
-               success:(void (^)(NSString *token, NSString *userId))successBlock
-                 error:(void (^)(RCDLoginErrorCode errorCode))errorBlock;
-
 + (void)loginWithPhone:(NSString *)phone
       verificationCode:(NSString *)verificationCode
                 region:(NSString *)region
                success:(void (^)(NSString *token, NSString *userId, NSString *nickName))successBlock
                  error:(void (^)(RCDLoginErrorCode errorCode))errorBlock;
 
-// 当前用户注销
+
 + (void)logout:(void (^)(BOOL success))completeBlock;
+
++ (void)removeAccount:(void (^)(BOOL success))completeBlock;
 
 + (BOOL)openDB:(NSString *)currentUserId;
 
++ (void)getPictureVerificationCode:(void (^)(NSString *base64String, NSString *codeId))successBlock
+                             error:(void (^)(RCDLoginErrorCode code))errorBlock;
 
 // 向手机发送验证码(云片服务)
 + (void)getVerificationCode:(NSString *)phoneCode
                 phoneNumber:(NSString *)phoneNumber
+                pictureCode:(NSString *)pictureCode
+              pictureCodeId:(NSString *)pictureCodeId
                     success:(void (^)(BOOL success))successBlock
                       error:(void (^)(RCDLoginErrorCode errorCode, NSString *errorMsg))errorBlock;
 

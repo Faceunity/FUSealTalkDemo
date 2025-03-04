@@ -20,6 +20,13 @@
 #import "RCDDebugConversationChannelNotificationLevelViewController.h"
 #import "RCDDebugUltraGroupUnreadMessageViewController.h"
 
+#import "RCDNavigationViewController.h"
+#import "RCDDebugUltraGroupChatSearchViewController.h"
+
+#import "RCDDebugUltraGroupListSelectController.h"
+
+#import "RCDUltraGroupManager.h"
+
 @interface RCDDebugChatSettingViewController ()<UITableViewDelegate, UITableViewDataSource>
 
 @property (nonatomic, strong) NSString *groupId;
@@ -58,7 +65,16 @@
                     @"6.1.2 查询指定超级群默认通知配置",// 22
                     @"6.2.1 设置指定超级群特定频道默认通知配置",//23
                     @"6.2.2 查询指定超级群特定频道默认通知配置",// 24
-                    @"(其他)获取超级群未读数"];//25
+                    @"(其他)获取超级群未读数", //25
+                    @"发一条携带敏感词{key(123):毛泽东}文本消息", //26
+                    @"搜索超级群当前频道的消息记录", //27
+                    @"搜索超级群所有频道的消息记录", //28
+                    @"修改超级群当前频道第一条消息", //29
+                    @"批量获取超级群未读数", //30
+                    @"搜索此超级群下多个指定频道的消息记录", //31
+                    @"根据用户 ID 搜索此超级群下指定频道的消息记录", //32
+                    @"根据用户 ID 搜索此超级群下所有频道的消息记录" //33
+    ];
     [self setupSubviews];
     [self setNavi];
 }
@@ -283,6 +299,30 @@
         case 25:
             [self unreadMessageVerify];
             break;
+        case 26:
+            [self sendBlockKVTextMessage];
+            break;
+        case 27:
+            [self showUltraGroupChatSearchCurrentChannel];
+            break;
+        case 28:
+            [self showUltraGroupChatSearchAllChannel];
+            break;
+        case 29:
+            [self modifyFirstMessage];
+            break;
+        case 30:
+            [self getUnreadCountWithBatchTargetId];
+            break;
+        case 31:
+            [self showUltraGroupChatSearchChannels];
+            break;
+        case 32:
+            [self showUltraGroupChatSearchByUserIdForChannels];
+            break;
+        case 33:
+            [self showUltraGroupChatSearchByUserIdForAllChannel];
+            break;
         default:
             break;
     }
@@ -329,7 +369,7 @@
 
 - (void)clickIsTopBtn:(id)sender {
     UISwitch *swch = sender;
-    [[RCIMClient sharedRCIMClient] setConversationToTop:ConversationType_ULTRAGROUP targetId:self.targetId isTop:swch.on];
+    [[RCCoreClient sharedCoreClient] setConversationToTop:ConversationType_ULTRAGROUP targetId:self.targetId isTop:swch.on];
 }
 
 - (void)clearHistoryMessage:(BOOL)clearRemote {
@@ -351,6 +391,12 @@
 
 - (void)sendKVTextMessage {
     [[NSNotificationCenter defaultCenter] postNotificationName:kRCDDebugChatSettingNotification object:@(RCDDebugNotificationTypeSendMsgKV)];
+}
+
+// 发送携带敏感词KV的消息
+- (void)sendBlockKVTextMessage {
+    [self.navigationController popViewControllerAnimated:YES];
+    [[NSNotificationCenter defaultCenter] postNotificationName:kRCDDebugChatSettingNotification object:@(RCDDebugNotificationTypeSendMsgBlockKV)];
 }
 
 #pragma mark- 获取特定会话下所有频道的会话列表
@@ -639,6 +685,153 @@
                                        msg:nil];
                 });
         }];
+}
+
+- (void)showUltraGroupChatSearchCurrentChannel {
+    
+    RCDDebugUltraGroupChatSearchViewController *controller = [[RCDDebugUltraGroupChatSearchViewController alloc] init];
+    controller.targetId = self.targetId;
+    controller.channelId = self.channelId;
+    RCDNavigationViewController *navigationController = [[RCDNavigationViewController alloc] initWithRootViewController:controller];
+    navigationController.modalPresentationStyle = UIModalPresentationFullScreen;
+    [self presentViewController:navigationController animated:NO completion:nil];
+}
+
+- (void)showUltraGroupChatSearchAllChannel {
+    RCDDebugUltraGroupChatSearchViewController *controller = [[RCDDebugUltraGroupChatSearchViewController alloc] init];
+    controller.targetId = self.targetId;
+    RCDNavigationViewController *navigationController = [[RCDNavigationViewController alloc] initWithRootViewController:controller];
+    navigationController.modalPresentationStyle = UIModalPresentationFullScreen;
+    [self presentViewController:navigationController animated:NO completion:nil];
+}
+
+- (void)showUltraGroupChatSearchChannels {
+    
+    RCDDebugUltraGroupListSelectController *controller = [[RCDDebugUltraGroupListSelectController alloc] init];
+    controller.targetId = self.targetId;
+    controller.selectedChannelIdsResult = ^(NSArray<NSString *> * _Nonnull channelIds) {
+        RCDDebugUltraGroupChatSearchViewController *controller = [[RCDDebugUltraGroupChatSearchViewController alloc] init];
+        controller.targetId = self.targetId;
+        controller.channelIds = channelIds;
+        RCDNavigationViewController *navigationController = [[RCDNavigationViewController alloc] initWithRootViewController:controller];
+        navigationController.modalPresentationStyle = UIModalPresentationFullScreen;
+        [self presentViewController:navigationController animated:NO completion:nil];
+    };
+    [self.navigationController pushViewController:controller animated:YES];
+}
+
+- (void)showUltraGroupChatSearchByUserIdForChannels {
+    
+    void (^complete)(NSArray<NSString *> *memberIdList) = ^(NSArray<NSString *> *memberIdList){
+        UIAlertController *alertController = [UIAlertController alertControllerWithTitle:nil message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+        for (NSInteger i = 0; i < memberIdList.count; i++) {
+            UIAlertAction *action = [UIAlertAction actionWithTitle:memberIdList[i] style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+                RCDDebugUltraGroupListSelectController *controller = [[RCDDebugUltraGroupListSelectController alloc] init];
+                controller.targetId = self.targetId;
+                controller.selectedChannelIdsResult = ^(NSArray<NSString *> * _Nonnull channelIds) {
+                    RCDDebugUltraGroupChatSearchViewController *controller = [[RCDDebugUltraGroupChatSearchViewController alloc] init];
+                    controller.targetId = self.targetId;
+                    controller.userId = memberIdList[i];
+                    controller.channelIds = channelIds;
+                    RCDNavigationViewController *navigationController = [[RCDNavigationViewController alloc] initWithRootViewController:controller];
+                    navigationController.modalPresentationStyle = UIModalPresentationFullScreen;
+                    [self presentViewController:navigationController animated:NO completion:nil];
+                };
+                [self.navigationController pushViewController:controller animated:YES];
+            }];
+            [alertController addAction:action];
+        }
+        UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil];
+        [alertController addAction:cancelAction];
+        [self presentViewController:alertController animated:YES completion:nil];
+    };
+    
+    [RCDUltraGroupManager getUltraGroupMemberList:self.targetId
+                                            count:100
+                                         complete:^(NSArray<NSString *> *memberIdList) {
+        dispatch_main_async_safe(^{
+            complete(memberIdList);
+        })
+    }];
+}
+
+- (void)showUltraGroupChatSearchByUserIdForAllChannel {
+    void (^complete)(NSArray<NSString *> *memberIdList) = ^(NSArray<NSString *> *memberIdList){
+        UIAlertController *alertController = [UIAlertController alertControllerWithTitle:nil message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+        for (NSInteger i = 0; i < memberIdList.count; i++) {
+            UIAlertAction *action = [UIAlertAction actionWithTitle:memberIdList[i] style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+                RCDDebugUltraGroupChatSearchViewController *controller = [[RCDDebugUltraGroupChatSearchViewController alloc] init];
+                controller.targetId = self.targetId;
+                controller.userId = memberIdList[i];
+                RCDNavigationViewController *navigationController = [[RCDNavigationViewController alloc] initWithRootViewController:controller];
+                navigationController.modalPresentationStyle = UIModalPresentationFullScreen;
+                [self presentViewController:navigationController animated:NO completion:nil];
+            }];
+            [alertController addAction:action];
+        }
+        UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil];
+        [alertController addAction:cancelAction];
+        [self presentViewController:alertController animated:YES completion:nil];
+    };
+    
+    [RCDUltraGroupManager getUltraGroupMemberList:self.targetId
+                                            count:100
+                                         complete:^(NSArray<NSString *> *memberIdList) {
+        dispatch_main_async_safe(^{
+            complete(memberIdList);
+        })
+    }];
+}
+
+- (void)modifyFirstMessage {
+    RCHistoryMessageOption *option = [[RCHistoryMessageOption alloc] init];
+    option.count = 1;
+    [[RCChannelClient sharedChannelManager] getMessages:self.type targetId:self.targetId channelId:self.channelId option:option complete:^(NSArray<RCMessage *> * _Nullable messages, RCErrorCode code) {
+        if (messages.count == 0) return;
+        RCMessage *message = messages.firstObject;
+        RCTextMessage *content = [RCTextMessage messageWithContent:@"modify text message"];
+        [[RCChannelClient sharedChannelManager] modifyUltraGroupMessage:message.messageUId messageContent:content success:^{
+            dispatch_async(dispatch_get_main_queue(), ^{
+                NSString *msg = [message.messageUId stringByAppendingFormat:@": %@", content.content];
+                [RCAlertView showAlertController:@"修改超级群消息" message:msg cancelTitle:@"确定"];
+            });
+        } error:^(RCErrorCode status) {
+            NSLog(@"modifyUltraGroupMessage failed %@", @(status));
+        }];
+    }];
+}
+
+- (void)getUnreadCountWithBatchTargetId {
+    UIAlertController *controller = [UIAlertController alertControllerWithTitle:@"批量获取超级群未读数" message:@"targetId 以空格隔开" preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertAction *sureAction = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        UITextField *textField = controller.textFields.firstObject;
+        NSString *text = textField.text;
+//        if (text.length == 0) text = @"SJMLgITzr a7zNdEojB";
+        NSArray *tIds = [text componentsSeparatedByString:@" "];
+        if (tIds.count == 0) return;
+        [[RCChannelClient sharedChannelManager] getUltraGroupConversationUnreadInfoList:tIds success:^(NSArray<RCConversationUnreadInfo *> * _Nonnull list) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self showUnreadCountResult:list];
+            });
+        } error:^(RCErrorCode status) {}];
+    }];
+    UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {}];
+    [controller addTextFieldWithConfigurationHandler:^(UITextField * _Nonnull textField) {}];
+    [controller addAction:sureAction];
+    [controller addAction:cancelAction];
+    [self presentViewController:controller animated:YES completion:nil];
+}
+
+- (void)showUnreadCountResult:(NSArray<RCConversationUnreadInfo *> *)list {
+    UIAlertController *controller = [UIAlertController alertControllerWithTitle:@"批量获取超级群未读数" message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+    for (RCConversationUnreadInfo *info in list) {
+        NSString *content = [NSString stringWithFormat:@"%@ %@:%@,%@,%@,%@", info.targetId, info.channelId, @(info.unreadMessageCount), @(info.mentionedCount), @(info.mentionedMeCount), @(info.notificationLevel)];
+        UIAlertAction *action = [UIAlertAction actionWithTitle:content style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {}];
+        [controller addAction:action];
+    }
+    UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {}];
+    [controller addAction:cancelAction];
+    [self presentViewController:controller animated:YES completion:nil];
 }
 
 #pragma mark- 沙盒

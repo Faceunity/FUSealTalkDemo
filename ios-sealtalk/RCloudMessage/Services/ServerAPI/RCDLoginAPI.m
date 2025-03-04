@@ -10,32 +10,6 @@
 #import "RCDHTTPUtility.h"
 
 @implementation RCDLoginAPI
-
-+ (void)loginWithPhone:(NSString *)phone
-              password:(NSString *)password
-                region:(NSString *)region
-               success:(void (^)(NSString *_Nonnull, NSString *_Nonnull))successBlock
-                 error:(void (^)(RCDLoginErrorCode))errorBlock {
-    NSDictionary *params = @{ @"region" : region, @"phone" : phone, @"password" : password };
-    [RCDHTTPUtility requestWithHTTPMethod:HTTPMethodPost
-                                URLString:@"user/login"
-                               parameters:params
-                                 response:^(RCDHTTPResult *_Nonnull result) {
-                                     if (result.success) {
-                                         if (successBlock) {
-                                             NSString *token = result.content[@"token"];
-                                             NSString *userId = result.content[@"id"];
-                                             successBlock(token, userId);
-                                         }
-                                     } else {
-                                         if (errorBlock) {
-                                             errorBlock(result.errorCode);
-                                         }
-                                     }
-                                 }];
-}
-
-
 + (void)loginWithPhone:(NSString *)phone
       verificationCode:(NSString *)verificationCode
                 region:(NSString *)region
@@ -64,6 +38,17 @@
 + (void)logout:(void (^)(BOOL))completeBlock {
     [RCDHTTPUtility requestWithHTTPMethod:HTTPMethodPost
                                 URLString:@"/user/logout"
+                               parameters:nil
+                                 response:^(RCDHTTPResult *_Nonnull result) {
+                                     if (completeBlock) {
+                                         completeBlock(result.success);
+                                     }
+                                 }];
+}
+
++ (void)removeAccount:(void (^)(BOOL success))completeBlock{
+    [RCDHTTPUtility requestWithHTTPMethod:HTTPMethodPost
+                                URLString:@"user/del"
                                parameters:nil
                                  response:^(RCDHTTPResult *_Nonnull result) {
                                      if (completeBlock) {
@@ -107,11 +92,33 @@
                      }];
 }
 
++ (void)getPictureVerificationCode:(void (^)(NSString *base64String, NSString *codeId))successBlock
+                             error:(void (^)(RCDLoginErrorCode code))errorBlock{
+    [RCDHTTPUtility requestWithHTTPMethod:HTTPMethodGet
+                                URLString:@"user/pic_code"
+                               parameters:nil
+                                 response:^(RCDHTTPResult *_Nonnull result) {
+        if (result.success) {
+            NSString *base64String = result.content[@"picCode"];
+            NSString *codeId = result.content[@"picCodeId"];
+            if (successBlock) {
+                successBlock(base64String,codeId);
+            }
+        } else {
+            if (errorBlock) {
+                errorBlock(result.errorCode);
+            }
+        }
+    }];
+}
+
 + (void)getVerificationCode:(NSString *)phoneCode
                 phoneNumber:(NSString *)phoneNumber
+                pictureCode:(nonnull NSString *)pictureCode
+              pictureCodeId:(nonnull NSString *)pictureCodeId
                     success:(void (^)(BOOL))successBlock
                       error:(void (^)(RCDLoginErrorCode, NSString *))errorBlock {
-    NSDictionary *params = @{ @"region" : phoneCode, @"phone" : phoneNumber };
+    NSDictionary *params = @{ @"region" : phoneCode, @"phone" : phoneNumber, @"picCodeId": pictureCodeId?:@"", @"picCode": pictureCode?:@"" };
     [RCDHTTPUtility requestWithHTTPMethod:HTTPMethodPost
                                 URLString:@"user/send_code_yp"
                                parameters:params

@@ -30,7 +30,7 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    [RCIMClient sharedRCIMClient].messageExpansionDelegate = self;
+    [RCCoreClient sharedCoreClient].messageExpansionDelegate = self;
     setDic = @{}.mutableCopy;
     removeKeys = @[].mutableCopy;
     self.logList = [NSMutableArray array];
@@ -103,21 +103,50 @@
     __weak typeof(self) weakSelf = self;
     [RCDDebubMessageUIdListView showMessageUIdListView:self.view conversationType:self.conversationType targetId:self.targetId selectMessageBlock:^(RCMessage * _Nonnull message) {
         [self showsSetKeyAlert:message.messageUId complete:^(NSString *uId) {
-            [[RCIMClient sharedRCIMClient] updateMessageExpansion:setDic.copy messageUId:uId success:^{
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [weakSelf.view showHUDMessage:@"set success"];
-                    NSString *str = [@"设置 key: \n" stringByAppendingFormat:@"messageUid: %@;;;\n setKeys: %@",uId,[self getJson:setDic.copy]];
-                    [weakSelf.logList addObject:str];
-                    [weakSelf reloadViews];
-                });
-            } error:^(RCErrorCode status) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [weakSelf.view showHUDMessage:[NSString stringWithFormat:@"set failed:%ld",(long)status]];
-                });
-            }];
+            if (message.messageUId.length == 0) {
+                [weakSelf showLocalMessageTip:^(BOOL send) {
+                    if (!send) return;
+                    message.expansionDic = setDic;
+                    [RCCoreClient.sharedCoreClient sendMessage:message pushContent:nil pushData:nil successBlock:^(RCMessage * _Nonnull successMessage) {
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            [weakSelf.view showHUDMessage:@"set success"];
+                            NSString *str = [@"设置 key: \n" stringByAppendingFormat:@"messageUid: %@;;;\n setKeys: %@",uId,[self getJson:setDic.copy]];
+                            [weakSelf.logList addObject:str];
+                            [weakSelf reloadViews];
+                        });
+                    } errorBlock:^(RCErrorCode nErrorCode, RCMessage * _Nonnull errorMessage) {
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            [weakSelf.view showHUDMessage:[NSString stringWithFormat:@"set failed:%ld",(long)nErrorCode]];
+                        });
+                    }];
+                }];
+            } else {
+                [[RCCoreClient sharedCoreClient] updateMessageExpansion:setDic.copy messageUId:uId success:^{
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [weakSelf.view showHUDMessage:@"set success"];
+                        NSString *str = [@"设置 key: \n" stringByAppendingFormat:@"messageUid: %@;;;\n setKeys: %@",uId,[self getJson:setDic.copy]];
+                        [weakSelf.logList addObject:str];
+                        [weakSelf reloadViews];
+                    });
+                } error:^(RCErrorCode status) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [weakSelf.view showHUDMessage:[NSString stringWithFormat:@"set failed:%ld",(long)status]];
+                    });
+                }];
+            }
         }];
     }];
-    
+}
+
+- (void)showLocalMessageTip:(void(^)(BOOL send))completion {
+    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"提示" message:@"该消息可能是本地消息，设置扩展后需要发送，是否发送？" preferredStyle:UIAlertControllerStyleAlert];
+    [alertController addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        completion(YES);
+    }]];
+    [alertController addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        completion(NO);
+    }]];
+    [self presentViewController:alertController animated:true completion:nil];
 }
 
 - (void)removeMessageExpansion{
@@ -125,7 +154,7 @@
     [RCDDebubMessageUIdListView showMessageUIdListView:self.view conversationType:self.conversationType targetId:self.targetId selectMessageBlock:^(RCMessage * _Nonnull message) {
         [self showsRemoveKeyAlert:message.messageUId complete:^(NSString *uId) {
             __weak typeof(self) weakSelf = self;
-            [[RCIMClient sharedRCIMClient] removeMessageExpansionForKey:removeKeys.copy messageUId:uId success:^{
+            [[RCCoreClient sharedCoreClient] removeMessageExpansionForKey:removeKeys.copy messageUId:uId success:^{
                 dispatch_async(dispatch_get_main_queue(), ^{
                     [self.view showHUDMessage:@"remove success"];
                     NSString *str = [@"删除 key: " stringByAppendingFormat:@"messageUid: %@;;;\n keys: %@",uId,[self getJson:removeKeys.copy]];
@@ -144,7 +173,7 @@
 //- (void)removeMessageAllExpansion{
 //    [RCDDebubMessageUIdListView showMessageUIdListView:self.view conversationType:self.conversationType targetId:self.targetId selectMessageBlock:^(RCMessage * _Nonnull message) {
 //        __weak typeof(self) weakSelf = self;
-//        [[RCIMClient sharedRCIMClient] removeMessageAllExpansion:message.messageUId success:^{
+//        [[RCCoreClient sharedCoreClient] removeMessageAllExpansion:message.messageUId success:^{
 //            dispatch_async(dispatch_get_main_queue(), ^{
 //                [self.view showHUDMessage:@"remove success"];
 //                NSString *str = [@"删除所有 key: " stringByAppendingFormat:@"messageUid: %@",message.messageUId];
@@ -160,7 +189,7 @@
 //}
 
 - (void)getDBMessages{
-    NSArray *array = [[RCIMClient sharedRCIMClient] getHistoryMessages:self.conversationType targetId:self.targetId oldestMessageId:-1 count:5];
+    NSArray *array = [[RCCoreClient sharedCoreClient] getHistoryMessages:self.conversationType targetId:self.targetId oldestMessageId:-1 count:5];
     for (RCMessage *message in array) {
         NSString *str = [@"获取本地历史消息：\n" stringByAppendingFormat:@"messsageId: %ld;;;\nMessageUid: %@;;;\nContent: %@;;;\nExpansion: %@",message.messageId,message.messageUId,[[NSString alloc] initWithData:[message.content encode] encoding:NSUTF8StringEncoding],[self getJson:message.expansionDic]];
         [self.logList addObject:str];
@@ -173,7 +202,7 @@
 }
 
 - (void)getRemoteMessages{
-    [[RCIMClient sharedRCIMClient] deleteMessages:self.conversationType targetId:self.targetId success:^{
+    [[RCCoreClient sharedCoreClient] deleteMessages:self.conversationType targetId:self.targetId success:^{
         
     } error:^(RCErrorCode status) {
         
@@ -181,7 +210,7 @@
     RCRemoteHistoryMsgOption *option = [[RCRemoteHistoryMsgOption alloc] init];
     option.count = 5;
     __weak typeof(self) weakSelf = self;
-    [[RCIMClient sharedRCIMClient] getRemoteHistoryMessages:self.conversationType targetId:self.targetId option:option success:^(NSArray *messages, BOOL isRemaining) {
+    [[RCCoreClient sharedCoreClient] getRemoteHistoryMessages:self.conversationType targetId:self.targetId option:option success:^(NSArray *messages, BOOL isRemaining) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if(messages.count == 0){
                 NSString *str = @"服务端没有历史消息";
@@ -207,7 +236,7 @@
         msg.canIncludeExpansion = YES;
         msg.expansionDic = setDic.copy;
         __weak typeof(self) weakSelf = self;
-        [[RCIMClient sharedRCIMClient] sendMessage:msg pushContent:nil pushData:nil successBlock:^(RCMessage *successMessage) {
+        [[RCCoreClient sharedCoreClient] sendMessage:msg pushContent:nil pushData:nil successBlock:^(RCMessage *successMessage) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 [weakSelf.view showHUDMessage:[NSString stringWithFormat:@"send message success"]];
                 NSString *str = [@"发送消息：\n" stringByAppendingFormat:@"messageId:%ld;;;\nmessageUid:%@;;;\ncontent:%@;;;\nExtension: %@",successMessage.messageId,successMessage.messageUId,[[NSString alloc] initWithData:[successMessage.content encode] encoding:NSUTF8StringEncoding],[self getJson:successMessage.expansionDic]];

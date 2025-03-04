@@ -37,7 +37,10 @@ NSString *const RCDBaseSettingTableViewCellIdentifier = @"RCDBaseSettingTableVie
             @(RCDComChatroomOptionCategory4_3) : @"4.3 查询->指定会话免打扰设置",
             @(RCDComChatroomOptionCategory5_1) : @"5.1 设置->指定会话类型免打扰设置",
             @(RCDComChatroomOptionCategory5_2) : @"5.2 移除->指定会话类型免打扰设置",
-            @(RCDComChatroomOptionCategory5_3) : @"5.3 查询->指定会话类型免打扰设置"
+            @(RCDComChatroomOptionCategory5_3) : @"5.3 查询->指定会话类型免打扰设置",
+            @(RCDComChatroomOptionCategory6_1) : @"6.1 发一条携带{tKey:当前时间}文本消息",
+            @(RCDComChatroomOptionCategory6_2) : @"6.2 发一条携带敏感词{key(123):毛泽东}文本消息",
+            @(RCDComChatroomOptionCategory6_3) : @"6.3 本地插入一条文本消息: test+时间"
         };
         _dataInfo = dic;
     }
@@ -244,6 +247,16 @@ NSString *const RCDBaseSettingTableViewCellIdentifier = @"RCDBaseSettingTableVie
             [self showSettingDetailBy:category];
         }
             break;
+            
+            // 发送 KV 消息，并回调 block
+        case RCDComChatroomOptionCategory6_1:
+        case RCDComChatroomOptionCategory6_2: {
+            [self sendKVMessage:category];
+        }
+            break;
+        case RCDComChatroomOptionCategory6_3:
+            [self insertTestMessage:category];
+            break;
         default:
             break;
     }
@@ -264,6 +277,29 @@ NSString *const RCDBaseSettingTableViewCellIdentifier = @"RCDBaseSettingTableVie
     vc.channelId = self.channelId;
     vc.title = title;
     [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)sendKVMessage:(RCDComChatroomOptionCategory)category {
+    if (self.selectedBlock) {
+        self.selectedBlock(category);
+    }
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+- (void)insertTestMessage:(RCDComChatroomOptionCategory)category {
+    NSTimeInterval timeInterval = [[NSDate date] timeIntervalSince1970] * 1000;
+    NSString *content = [NSString stringWithFormat:@"test_%ld", (long)timeInterval];
+    RCTextMessage *messageContent = [RCTextMessage messageWithContent:content];
+    [RCChannelClient.sharedChannelManager insertOutgoingMessage:self.type targetId:self.targetId channelId:self.channelId canIncludeExpansion:YES sentStatus:SentStatus_SENT content:messageContent sentTime:timeInterval completion:^(RCMessage * _Nullable message) {
+//        RCMessage *localMessage = [RCIMClient.sharedRCIMClient getMessage:message.messageId];
+//        localMessage.expansionDic = @{@"TMPKey": @"test"};
+//        [RCIMClient.sharedRCIMClient sendMessage:localMessage pushContent:nil pushData:nil successBlock:^(RCMessage * _Nonnull successMessage) {
+//            NSLog(@"%@", successMessage.expansionDic);
+//        } errorBlock:^(RCErrorCode nErrorCode, RCMessage * _Nonnull errorMessage) {
+//            NSLog(@"send message error: %d", (int)nErrorCode);
+//        }];
+    }];
+    [self.navigationController popViewControllerAnimated:YES];
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {

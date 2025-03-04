@@ -21,7 +21,10 @@ typedef NS_ENUM(NSInteger, RCDComChatroomOptionCategory) {
     RCDComChatroomOptionCategory4_3,
     RCDComChatroomOptionCategory5_1,
     RCDComChatroomOptionCategory5_2,
-    RCDComChatroomOptionCategory5_3
+    RCDComChatroomOptionCategory5_3,
+    RCDComChatroomOptionCategory6_1,
+    RCDComChatroomOptionCategory6_2,
+    RCDComChatroomOptionCategory6_3,
 };
 @interface RCDebugPushLevelViewController : RCDebugComBaseViewController
 

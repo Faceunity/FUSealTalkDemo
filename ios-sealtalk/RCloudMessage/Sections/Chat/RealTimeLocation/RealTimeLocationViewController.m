@@ -37,13 +37,13 @@
     [self addSubviews];
 
     CLLocation *currentLocation =
-        [self.realTimeLocationProxy getLocation:[RCIMClient sharedRCIMClient].currentUserInfo.userId];
+        [self.realTimeLocationProxy getLocation:[RCCoreClient sharedCoreClient].currentUserInfo.userId];
     if (currentLocation) {
         __weak RealTimeLocationViewController *weakSelf = self;
         dispatch_async(dispatch_get_main_queue(), ^{
             [weakSelf onReceiveLocation:currentLocation
                                    type:RCRealTimeLocationTypeWGS84
-                             fromUserId:[RCIMClient sharedRCIMClient].currentUserInfo.userId];
+                             fromUserId:[RCCoreClient sharedCoreClient].currentUserInfo.userId];
         });
     }
     [RTLUtilities showHUDAddedTo:self.mapView
@@ -119,16 +119,18 @@
         if (self.isFirstTimeToLoad) {
             if (-90.0f <= location.coordinate.latitude && location.coordinate.latitude <= 90.0f &&
                 -180.0f <= location.coordinate.longitude && location.coordinate.longitude <= 180.0f) {
-                CLLocationCoordinate2D center;
-                center.latitude = location.coordinate.latitude;
-                center.longitude = location.coordinate.longitude;
+                CLLocationCoordinate2D center = location.coordinate;
+                if (type == RCRealTimeLocationTypeWGS84) {
+                    CLLocationCoordinate2D temp = [RCLocationConvert wgs84ToGcj02:location.coordinate];
+                    center.latitude = temp.latitude;
+                    center.longitude = temp.longitude;
+                }
                 MKCoordinateSpan span;
-                span.latitudeDelta = 0.1;
-                span.longitudeDelta = 0.1;
+                span.latitudeDelta = 0.008;
+                span.longitudeDelta = 0.008;
                 MKCoordinateRegion region = {center, span};
                 self.theSpan = span;
                 self.theRegion = region;
-                [self.mapView setCenterCoordinate:center animated:YES];
                 [self.mapView setRegion:self.theRegion];
             }
         }

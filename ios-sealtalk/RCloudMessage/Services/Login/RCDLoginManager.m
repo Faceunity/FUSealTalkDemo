@@ -15,26 +15,6 @@ static NSString *const RongCloud = @"RongCloud";
 static NSString *const DBName = @"SealTalkDB";
 
 @implementation RCDLoginManager
-
-+ (void)loginWithPhone:(NSString *)phone
-              password:(NSString *)password
-                region:(NSString *)region
-               success:(void (^)(NSString *_Nonnull, NSString *_Nonnull))successBlock
-                 error:(void (^)(RCDLoginErrorCode))errorBlock {
-    [RCDLoginAPI loginWithPhone:phone
-                       password:password
-                         region:region
-                        success:^(NSString *_Nonnull token, NSString *_Nonnull userId) {
-                            dispatch_async(dispatch_get_main_queue(), ^{
-                                [self openDB:userId];
-                            });
-                            if (successBlock) {
-                                successBlock(token, userId);
-                            }
-                        }
-                          error:errorBlock];
-}
-
 + (void)loginWithPhone:(NSString *)phone
       verificationCode:(NSString *)verificationCode
                 region:(NSString *)region
@@ -63,6 +43,19 @@ static NSString *const DBName = @"SealTalkDB";
     }];
 }
 
++ (void)removeAccount:(void (^)(BOOL success))completeBlock{
+    [RCDLoginAPI removeAccount:^(BOOL success) {
+        if (success) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self removeDB];
+            });
+        }
+        if (completeBlock) {
+            completeBlock(success);
+        }
+    }];
+}
+
 + (BOOL)openDB:(NSString *)currentUserId {
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES);
     NSString *dbPath = [[[paths objectAtIndex:0] stringByAppendingPathComponent:RongCloud]
@@ -78,11 +71,32 @@ static NSString *const DBName = @"SealTalkDB";
     return [RCDDBManager openDB:dbPath];
 }
 
++ (BOOL)removeDB{
+    NSString *currentUserId = [RCCoreClient sharedCoreClient].currentUserInfo.userId;
+    if (!currentUserId) {
+        return NO;
+    }
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES);
+    NSString *dbPath = [[[paths objectAtIndex:0] stringByAppendingPathComponent:RongCloud]
+        stringByAppendingPathComponent:currentUserId];
+    if ([[NSFileManager defaultManager] fileExistsAtPath:dbPath]) {
+        [[NSFileManager defaultManager] removeItemAtPath:dbPath error:nil];
+    }
+    return YES;
+}
+
++ (void)getPictureVerificationCode:(void (^)(NSString *base64String, NSString *codeId))successBlock
+                             error:(void (^)(RCDLoginErrorCode code))errorBlock{
+    [RCDLoginAPI getPictureVerificationCode:successBlock error:errorBlock];
+}
+
 + (void)getVerificationCode:(NSString *)phoneCode
                 phoneNumber:(NSString *)phoneNumber
-                    success:(void (^)(BOOL))successBlock
-                      error:(void (^)(RCDLoginErrorCode, NSString *))errorBlock {
-    [RCDLoginAPI getVerificationCode:phoneCode phoneNumber:phoneNumber success:successBlock error:errorBlock];
+                pictureCode:(nonnull NSString *)pictureCode
+              pictureCodeId:(nonnull NSString *)pictureCodeId
+                    success:(nonnull void (^)(BOOL))successBlock
+                      error:(nonnull void (^)(RCDLoginErrorCode, NSString * _Nonnull))errorBlock{
+    [RCDLoginAPI getVerificationCode:phoneCode phoneNumber:phoneNumber pictureCode:pictureCode pictureCodeId:pictureCodeId success:successBlock error:errorBlock];
 }
 
 + (void)verifyVerificationCode:(NSString *)phoneCode

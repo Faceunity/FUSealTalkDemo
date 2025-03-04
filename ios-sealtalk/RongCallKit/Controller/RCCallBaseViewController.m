@@ -22,6 +22,35 @@
 
 #import "FUDemoManager.h"
 
+
+
+// 解除循环引用
+@interface RCCallProxy : NSProxy
+@property (nonatomic, weak) id obj;
+@end
+
+@implementation RCCallProxy
+
++ (id)invokeProxyTarget:(id)target
+{
+    RCCallProxy *proxy = [RCCallProxy alloc];
+    proxy.obj = target;
+    return proxy;
+}
+
+- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+{
+    NSMethodSignature *sig = [self.obj methodSignatureForSelector:aSelector];
+    return sig;
+}
+
+- (void)forwardInvocation:(NSInvocation *)invocation
+{
+    [invocation invokeWithTarget:self.obj];
+}
+
+@end
+
 NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessionCreation Notification";
 
 @interface RCCallBaseViewController () {
@@ -69,59 +98,87 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
     return self;
 }
 
-- (instancetype)initWithOutgoingCall:(RCConversationType)conversationType
-                            targetId:(NSString *)targetId
-                           mediaType:(RCCallMediaType)mediaType
-                          userIdList:(NSArray *)userIdList {
+- (instancetype)initWithOutgoingCall:(RCConversationType)conversationType isCrossCallType:(BOOL)isCross targetId:(NSString *)targetId mediaType:(RCCallMediaType)mediaType userIdList:(NSArray *)userIdList {
     self = [super init];
     if (self) {
         [self willChangeValueForKey:@"callSession"];
-        NSString *invitePushContent =
-            [NSString stringWithFormat:mediaType == RCCallMediaAudio ?
-                                           RCCallKitLocalizedString(@"VoIPCall_invite_audio_push_Content") :
-                                           RCCallKitLocalizedString(@"VoIPCall_invite_video_push_Content"),
-                                       [RCIMClient sharedRCIMClient].currentUserInfo.name];
+        
         NSString *hangupPushContent = RCCallKitLocalizedString(@"VoIPCall_hangup_PushContent");
-
+        
         RCMessagePushConfig *invitePushConfig = [self getPushConfig];
         RCMessagePushConfig *hangupPushConfig = [self getPushConfig];
+        
+        RCUserInfo *userInfo =
+            [[RCUserInfoCacheManager sharedManager] getUserInfo: [RCIMClient sharedRCIMClient].currentUserInfo.userId];
+        NSString *invitePushContent;
         if (conversationType == ConversationType_PRIVATE) {
-            if (!invitePushConfig.pushTitle || invitePushConfig.pushTitle.length == 0) {
-                invitePushConfig.pushTitle = [RCIMClient sharedRCIMClient].currentUserInfo.name;
+            if (userInfo) {
+                invitePushContent =
+                (mediaType == RCCallMediaAudio ? RCCallKitLocalizedString(@"VoIPCall_invite_audio_push_Content"): RCCallKitLocalizedString(@"VoIPCall_invite_video_push_Content"));
+                if (!invitePushConfig.pushTitle.length) {
+                    invitePushConfig.pushTitle = [RCIMClient sharedRCIMClient].currentUserInfo.name;
+                }
+                if (!hangupPushConfig.pushTitle.length) {
+                    hangupPushConfig.pushTitle = [RCIMClient sharedRCIMClient].currentUserInfo.name;
+                }
             }
-            if (!invitePushConfig.pushContent || invitePushConfig.pushContent.length == 0) {
+            else {
+                invitePushContent = mediaType == RCCallMediaVideo ?
+                    RCCallKitLocalizedString(@"VoIPVideoCallIncomingWithoutUserName") :
+                    RCCallKitLocalizedString(@"VoIPAudioCallIncomingWithoutUserName");
+            }
+            if (!invitePushConfig.pushContent.length) {
                 invitePushConfig.pushContent = invitePushContent;
             }
-            if (!hangupPushConfig.pushTitle || hangupPushConfig.pushTitle.length == 0) {
-                hangupPushConfig.pushTitle = [RCIMClient sharedRCIMClient].currentUserInfo.name;
-            }
-            if (!hangupPushConfig.pushContent || hangupPushConfig.pushContent.length == 0) {
+            if (!hangupPushConfig.pushContent.length) {
                 hangupPushConfig.pushContent = hangupPushContent;
             }
-        } else {
+        }
+        else {
             RCGroup *groupInfo = [[RCUserInfoCacheManager sharedManager] getGroupInfo:targetId];
-            if (!invitePushConfig.pushTitle || invitePushConfig.pushTitle.length == 0) {
+            if (userInfo) {
+                invitePushContent =
+                    [NSString stringWithFormat:@"%@ %@",[RCIMClient sharedRCIMClient].currentUserInfo.name, mediaType == RCCallMediaAudio ?
+                                                   RCCallKitLocalizedString(@"VoIPCall_invite_audio_push_Content") :
+                                                   RCCallKitLocalizedString(@"VoIPCall_invite_video_push_Content")];
+            }
+            else {
+                invitePushContent = mediaType == RCCallMediaVideo ?
+                    RCCallKitLocalizedString(@"VoIPVideoCallIncomingWithoutUserName") :
+                    RCCallKitLocalizedString(@"VoIPAudioCallIncomingWithoutUserName");
+            }
+            if (!invitePushConfig.pushTitle.length) {
                 invitePushConfig.pushTitle = groupInfo.groupName;
             }
-            if (!invitePushConfig.pushContent || invitePushConfig.pushContent.length == 0) {
+            if (!invitePushConfig.pushContent.length) {
                 invitePushConfig.pushContent = invitePushContent;
             }
-            if (!hangupPushConfig.pushTitle || hangupPushConfig.pushTitle.length == 0) {
+            if (!hangupPushConfig.pushTitle.length) {
                 hangupPushConfig.pushTitle = groupInfo.groupName;
             }
-            if (!hangupPushConfig.pushContent || hangupPushConfig.pushContent.length == 0) {
+            if (!hangupPushConfig.pushContent.length) {
                 hangupPushConfig.pushContent = hangupPushContent;
             }
         }
         [[RCCallClient sharedRCCallClient] setInvitePushConfig:invitePushConfig];
         [[RCCallClient sharedRCCallClient] setHangupPushConfig:hangupPushConfig];
 
-        _callSession = [[RCCallClient sharedRCCallClient] startCall:conversationType
-                                                           targetId:targetId
-                                                                 to:userIdList
-                                                          mediaType:mediaType
-                                                    sessionDelegate:self
-                                                              extra:nil];
+        if (isCross) {
+            _callSession = [[RCCallClient sharedRCCallClient] startCrossCall:conversationType
+                                                               targetId:targetId
+                                                                     to:userIdList
+                                                              mediaType:mediaType
+                                                        sessionDelegate:self
+                                                                  extra:nil];
+        } else {
+            _callSession = [[RCCallClient sharedRCCallClient] startCall:conversationType
+                                                               targetId:targetId
+                                                                     to:userIdList
+                                                              mediaType:mediaType
+                                                        sessionDelegate:self
+                                                                  extra:nil];
+        }
+        
         [[NSNotificationCenter defaultCenter] postNotificationName:RCCallNewSessionCreationNotification
                                                             object:_callSession];
         [self didChangeValueForKey:@"callSession"];
@@ -143,9 +200,16 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
         [RCCallKitUtility setScreenForceOn];
         [_callSession setMinimized:NO];
         hangupButtonClick = NO;
-        
     }
     return self;
+}
+
+- (instancetype)initWithOutgoingCrossCall:(RCConversationType)conversationType targetId:(NSString *)targetId mediaType:(RCCallMediaType)mediaType userIdList:(NSArray *)userIdList {
+    return [self initWithOutgoingCall:conversationType isCrossCallType:YES targetId:targetId mediaType:mediaType userIdList:userIdList];
+}
+
+- (instancetype)initWithOutgoingCall:(RCConversationType)conversationType targetId:(NSString *)targetId mediaType:(RCCallMediaType)mediaType userIdList:(NSArray *)userIdList {
+    return [self initWithOutgoingCall:conversationType isCrossCallType:NO targetId:targetId mediaType:mediaType userIdList:userIdList];
 }
 
 - (instancetype)initWithActiveCall:(RCCallSession *)callSession {
@@ -180,6 +244,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
 - (void)dealloc {
     [self stopPlayRing];
+    [self stopActiveTimer];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
     [FUDemoManager destory];
@@ -245,7 +310,6 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
             [audioSession setCategory:AVAudioSessionCategorySoloAmbient error:nil];
             [self triggerVibrate];
         }
-        
         [audioSession setActive:YES error:nil];
 
         NSURL *url = [NSURL fileURLWithPath:ringPath];
@@ -306,12 +370,10 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
     [self.view addSubview:self.blurView];
     self.blurView.hidden = YES;
     
-    /* faceU */
     // FaceUnity UI
     [FUDemoManager setupFUSDK];
     [FUDemoManager shared].flipx = YES;
     [[FUDemoManager shared] addDemoViewToView:self.view originY:CGRectGetHeight(self.view.frame) - FUBottomBarHeight - FUSafaAreaBottomInsets() - 120];
-    
 }
 
 - (void)onOrientationChanged:(NSNotification *)notification {
@@ -365,6 +427,11 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
            callStatus:self.callSession.callStatus];
 }
 
+- (void)viewDidDisappear:(BOOL)animated {
+    [super viewDidDisappear:animated];
+    [UICollectionView setAnimationsEnabled:YES];
+}
+
 #pragma mark - Button&&Label&View
 - (UIButton *)minimizeButton {
     if (!_minimizeButton) {
@@ -389,16 +456,15 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
 - (void)minimizeButtonClicked {
     [self didTapMinimizeButton];
-    
-//#warning minimizeButton 最小化Button 会销毁当前控制器,对端美颜失效,再次点击会重新创建新的控制器
-//    Class selfClass = [self class];
-//    [RCCallFloatingBoard
-//        startCallFloatingBoard:self.callSession
-//              withTouchedBlock:^(RCCallSession *callSession) {
-//                  [[RCCall sharedRCCall] presentCallViewController:[[selfClass alloc] initWithActiveCall:callSession]];
-//              }];
-//    [self stopActiveTimer];
-//    [[RCCall sharedRCCall] dismissCallViewController:self];
+
+    Class selfClass = [self class];
+    [RCCallFloatingBoard
+        startCallFloatingBoard:self.callSession
+              withTouchedBlock:^(RCCallSession *callSession) {
+                  [[RCCall sharedRCCall] presentCallViewController:RCCallFloatingBoard.activeViewController];
+              }];
+    RCCallFloatingBoard.activeViewController = self;
+    [[RCCall sharedRCCall] dismissCallViewController:self];
 }
 
 - (UIButton *)inviteUserButton {
@@ -447,7 +513,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
     [_activeTimer invalidate];
     _activeTimer = nil;
     self.activeTimer = [NSTimer scheduledTimerWithTimeInterval:1
-                                                        target:self
+                                                        target:[RCCallProxy invokeProxyTarget:self]
                                                       selector:@selector(updateActiveTimer)
                                                       userInfo:nil
                                                        repeats:YES];
@@ -481,6 +547,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 - (UILabel *)tipsLabel {
     if (!_tipsLabel) {
         _tipsLabel = [[UILabel alloc] init];
+        _tipsLabel.numberOfLines = 0;
         _tipsLabel.backgroundColor = [UIColor clearColor];
         _tipsLabel.textColor = [UIColor whiteColor];
         _tipsLabel.font = [UIFont systemFontOfSize:18];
@@ -774,9 +841,9 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 }
 
 - (void)cameraCloseButtonClicked {
-    [self didTapCameraCloseButton];
 
     if (!self.callSession.isMultiCall) {
+        [self didTapCameraCloseButton];
         [self.callSession setVideoView:nil userId:[RCIMClient sharedRCIMClient].currentUserInfo.userId];
         [self.callSession setVideoView:nil userId:self.callSession.targetId];
 
@@ -785,6 +852,8 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
         }
 
         if ([self.callSession changeMediaType:RCCallMediaAudio]) {
+            self.tipsLabel.hidden = NO;
+            self.tipsLabel.text = RCCallKitLocalizedString(@"switchedToVoiceCall");
             [self resetLayout:self.callSession.isMultiCall
                     mediaType:RCCallMediaAudio
                    callStatus:self.callSession.callStatus];
@@ -792,6 +861,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
     } else {
         [self.callSession setCameraEnabled:!self.callSession.cameraEnabled];
         [self.cameraCloseButton setSelected:!self.callSession.cameraEnabled];
+        [self didTapCameraCloseButton];
     }
 }
 
@@ -899,6 +969,17 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
 #pragma mark - layout
 - (void)resetLayout:(BOOL)isMultiCall mediaType:(RCCallMediaType)mediaType callStatus:(RCCallStatus)sessionCallStatus {
+    // 适配阿语进行坐标替换，xLTR 为非阿语环境下的左侧按钮的 x 坐标
+    CGFloat xLTR;
+    CGFloat xRTL;
+    NSString *currentLanguageCode = [[NSLocale preferredLanguages] objectAtIndex:0];
+    if ([currentLanguageCode isEqualToString:@"ar"]) {
+        xLTR = self.view.frame.size.width - RCCallHorizontalMiddleMargin - RCCallCustomButtonLength;
+        xRTL = RCCallHorizontalMiddleMargin;
+    } else {
+        xLTR = RCCallHorizontalMiddleMargin;
+        xRTL = self.view.frame.size.width - RCCallHorizontalMiddleMargin - RCCallCustomButtonLength;
+    }
     RCCallStatus callStatus = sessionCallStatus;
     if ((callStatus == RCCallIncoming || callStatus == RCCallRinging) &&
         [RCCXCall sharedInstance].acceptedFromCallKit) {
@@ -947,8 +1028,8 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
         if (callStatus == RCCallHangup) {
             self.tipsLabel.frame = CGRectMake(
-                RCCallHorizontalMargin, self.view.frame.size.height - RCCallButtonBottomMargin * 5 - RCCallExtraSpace,
-                self.view.frame.size.width - RCCallHorizontalMargin * 2, RCCallLabelHeight);
+                RCCallHorizontalMargin, self.view.frame.size.height - RCCallButtonBottomMargin * 5 - RCCallExtraSpace - RCCallLabelHeight,
+                self.view.frame.size.width - RCCallHorizontalMargin * 2, RCCallLabelHeight * 2);
         } else if (callStatus == RCCallActive) {
             self.tipsLabel.frame =
                 CGRectMake(RCCallHorizontalMargin, RCCallButtonLength - 3.0f + RCCallStatusBarHeight,
@@ -962,7 +1043,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
         //一下所有RCArButton类型按钮Y-13  表示减去的文字高度
         if (callStatus == RCCallActive) {
             self.muteButton.frame =
-                CGRectMake(RCCallHorizontalMiddleMargin,
+                CGRectMake(xLTR,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -971,7 +1052,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
             self.muteButton.enabled = YES;
         } else if (callStatus == RCCallDialing) {
             self.muteButton.frame =
-                CGRectMake(RCCallHorizontalMiddleMargin,
+                CGRectMake(xLTR,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -984,7 +1065,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
         if (callStatus == RCCallActive) {
             self.speakerButton.frame =
-                CGRectMake(self.view.frame.size.width - RCCallHorizontalMiddleMargin - RCCallCustomButtonLength,
+                CGRectMake(xRTL,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -994,7 +1075,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
             if ([self isHeadsetPluggedIn]) [self reloadSpeakerRoute:NO];
         } else if (callStatus == RCCallDialing) {
             self.speakerButton.frame =
-                CGRectMake(self.view.frame.size.width - RCCallHorizontalMiddleMargin - RCCallCustomButtonLength,
+                CGRectMake(xRTL,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -1115,7 +1196,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
         if (callStatus == RCCallDialing) {
             self.muteButton.frame =
-                CGRectMake(RCCallHorizontalMiddleMargin,
+                CGRectMake(xLTR,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -1124,7 +1205,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
             self.muteButton.enabled = NO;
         } else if (callStatus == RCCallActive) {
             self.muteButton.frame =
-                CGRectMake(RCCallHorizontalMiddleMargin,
+                CGRectMake(xLTR,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -1138,7 +1219,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
         if (callStatus == RCCallDialing) {
             self.speakerButton.frame =
-                CGRectMake(self.view.frame.size.width - RCCallHorizontalMiddleMargin - RCCallCustomButtonLength,
+                CGRectMake(xRTL,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -1193,7 +1274,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
         if (callStatus == RCCallActive) {
             self.cameraSwitchButton.frame =
-                CGRectMake(self.view.frame.size.width - RCCallHorizontalMiddleMargin - RCCallCustomButtonLength,
+                CGRectMake(xRTL,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -1205,7 +1286,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
         if (callStatus == RCCallActive) {
             self.cameraCloseButton.frame =
-                CGRectMake(self.view.frame.size.width - RCCallHorizontalMiddleMargin - RCCallCustomButtonLength,
+                CGRectMake(xRTL,
                            self.view.frame.size.height - RCCallButtonBottomMargin * 4 - RCCallCustomButtonLength * 2 -
                                13 - RCCallHorizontalMargin - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -1282,7 +1363,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
         if (callStatus == RCCallActive) {
             self.muteButton.frame =
-                CGRectMake(RCCallHorizontalMiddleMargin,
+                CGRectMake(xLTR,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -1291,7 +1372,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
             self.muteButton.enabled = YES;
         } else if (callStatus == RCCallDialing) {
             self.muteButton.frame =
-                CGRectMake(RCCallHorizontalMiddleMargin,
+                CGRectMake(xLTR,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -1305,7 +1386,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
         if (callStatus == RCCallActive || callStatus == RCCallDialing) {
             self.speakerButton.frame =
-                CGRectMake(self.view.frame.size.width - RCCallHorizontalMiddleMargin - RCCallCustomButtonLength,
+                CGRectMake(xRTL,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -1377,7 +1458,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
         if (callStatus == RCCallActive) {
             self.muteButton.frame =
-                CGRectMake(RCCallHorizontalMiddleMargin,
+                CGRectMake(xLTR,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -1386,7 +1467,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
             self.muteButton.enabled = YES;
         } else if (callStatus == RCCallDialing) {
             self.muteButton.frame =
-                CGRectMake(RCCallHorizontalMiddleMargin,
+                CGRectMake(xLTR,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -1400,7 +1481,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
         if (callStatus == RCCallDialing) {
             self.speakerButton.frame =
-                CGRectMake(self.view.frame.size.width - RCCallHorizontalMiddleMargin - RCCallCustomButtonLength,
+                CGRectMake(xRTL,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength, RCCallCustomButtonLength);
@@ -1426,7 +1507,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
         }
 
         if (callStatus == RCCallActive) {
-            self.cameraSwitchButton.frame = CGRectMake(self.view.frame.size.width - RCCallHeaderLength,
+            self.cameraSwitchButton.frame = CGRectMake(xRTL,
                                                        RCCallMiniButtonLength + RCCallStatusBarHeight,
                                                        RCCallMiniButtonLength, RCCallMiniButtonLength);
             self.cameraSwitchButton.hidden = NO;
@@ -1490,7 +1571,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
             self.tipsLabel.frame =
                 CGRectMake(RCCallHorizontalMargin,
                            self.view.frame.size.height - RCCallVerticalMargin - RCCallButtonLength * 3.5 -
-                               RCCallInsideMargin * 5 - RCCallLabelHeight,
+                               RCCallInsideMargin * 5 - RCCallLabelHeight - 20,
                            self.view.frame.size.width - RCCallHorizontalMargin * 2, RCCallLabelHeight);
         }
         self.tipsLabel.hidden = NO;
@@ -1539,8 +1620,7 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
         if (callStatus == RCCallActive) {
             self.cameraCloseButton.frame =
-                CGRectMake(self.view.frame.size.width - RCCallHorizontalMiddleMargin -
-                               (RCCallCustomButtonLength + RCCallInsideMargin),
+                CGRectMake(xRTL,
                            self.view.frame.size.height - (RCCallButtonBottomMargin * 2 - RCCallInsideMargin * 2) - 13 -
                                RCCallCustomButtonLength - RCCallExtraSpace,
                            RCCallCustomButtonLength + RCCallInsideMargin * 2, RCCallCustomButtonLength);
@@ -1626,12 +1706,6 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
  通话已结束
  */
 - (void)callDidDisconnect {
-    
-//    // 通话结束,销毁FU资源.
-    
-    
-//    [[FUManager shareManager] destoryItems];
-    
     [self callWillDisconnect];
     [[RCCXCall sharedInstance] endCXCall];
     [RCCallKitUtility clearScreenForceOnStatus];
@@ -1640,7 +1714,9 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
 
     if (self.callSession.connectedTime > 0) {
         self.tipsLabel.text = RCCallKitLocalizedString(@"VoIPCallEnd");
-    } else {
+    } else if ([[RCCallKitUtility getReadableStringForCallViewController:self.callSession.disconnectReason] isEqualToString:RCCallKitLocalizedString(@"VoIPCallRemoteBusyLine")]) {
+        self.tipsLabel.text = RCCallKitLocalizedString(@"VoIPCallRemoteBusyLineAndShowAdvice");
+    }else {
         self.tipsLabel.text =
             [RCCallKitUtility getReadableStringForCallViewController:self.callSession.disconnectReason];
     }
@@ -1702,6 +1778,8 @@ NSNotificationName const RCCallNewSessionCreationNotification = @"RCCallNewSessi
     dispatch_async(dispatch_get_main_queue(), ^{
         if (!self.callSession.isMultiCall) {
             if (mediaType == RCCallMediaAudio) {
+                self.tipsLabel.hidden = NO;
+                self.tipsLabel.text = RCCallKitLocalizedString(@"otherUserSwitchedToVoiceCall");
                 [self.callSession setVideoView:nil userId:[RCIMClient sharedRCIMClient].currentUserInfo.userId];
                 [self.callSession setVideoView:nil userId:self.callSession.targetId];
                 [self resetLayout:self.callSession.isMultiCall

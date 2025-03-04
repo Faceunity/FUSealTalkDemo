@@ -19,6 +19,7 @@
 #import "UIColor+RCColor.h"
 #import "RCDLanguageManager.h"
 #import "RCDTableView.h"
+#import "RCDSemanticContext.h"
 @interface RCDSearchViewController () <UISearchBarDelegate, UITableViewDelegate, UITableViewDataSource,
                                        UIGestureRecognizerDelegate>
 @property (nonatomic, strong) NSMutableDictionary *resultDictionary;
@@ -34,7 +35,7 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    
+
     self.groupTypeArray = [NSMutableArray array];
     self.resultDictionary = [NSMutableDictionary dictionary];
 
@@ -149,9 +150,10 @@
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    [self.searchBar resignFirstResponder];
     NSString *type = self.groupTypeArray[indexPath.section];
     NSArray *array = self.resultDictionary[type];
+    [self.searchBar resignFirstResponder];
+
     if (indexPath.row == 3) {
         [self pushToSearchMoreVC:type result:array];
     } else {
@@ -199,7 +201,7 @@
     RCDSearchMoreController *viewController = [[RCDSearchMoreController alloc] init];
     viewController.searchString = self.searchBar.text;
     viewController.type = [NSString stringWithFormat:RCDLocalizedString(@"total_related_message"), model.count];
-    NSArray *msgArray = [[RCIMClient sharedRCIMClient] searchMessages:model.conversationType
+    NSArray *msgArray = [[RCCoreClient sharedCoreClient] searchMessages:model.conversationType
                                                              targetId:model.targetId
                                                               keyword:self.searchBar.text
                                                                 count:model.count
@@ -227,7 +229,7 @@
     _conversationVC.conversationType = model.conversationType;
     _conversationVC.targetId = model.targetId;
     _conversationVC.title = model.name;
-    NSArray *array = [[RCIMClient sharedRCIMClient] searchMessages:model.conversationType
+    NSArray *array = [[RCCoreClient sharedCoreClient] searchMessages:model.conversationType
                                                           targetId:model.targetId
                                                            keyword:self.searchBar.text
                                                              count:model.count
@@ -236,7 +238,7 @@
         RCMessage *message = [array firstObject];
         _conversationVC.locatedMessageSentTime = message.sentTime;
     }
-    int unreadCount = [[RCIMClient sharedRCIMClient] getUnreadCount:model.conversationType targetId:model.targetId];
+    int unreadCount = [[RCCoreClient sharedCoreClient] getUnreadCount:model.conversationType targetId:model.targetId];
     _conversationVC.unReadMessage = unreadCount;
     _conversationVC.enableNewComingMessageIcon = YES; //开启消息提醒
     _conversationVC.enableUnreadMessageIcon = YES;
@@ -342,7 +344,11 @@
 
 - (RCDSearchBar *)searchBar {
     if (!_searchBar) {
-        _searchBar = [[RCDSearchBar alloc] initWithFrame:CGRectMake(0, 0, self.searchView.frame.size.width - 75, 44)];
+        CGRect frame = CGRectMake(0, 0, self.searchView.frame.size.width - 75, 44);
+        if ([RCDSemanticContext isRTL]) {
+            frame = CGRectMake(63, 0, self.searchView.frame.size.width - 75, 44);
+        }
+        _searchBar = [[RCDSearchBar alloc] initWithFrame:frame];
         _searchBar.delegate = self;
         _searchBar.tintColor = [UIColor blueColor];
         [_searchBar becomeFirstResponder];
@@ -352,8 +358,12 @@
 
 - (UIButton *)cancelButton {
     if (!_cancelButton) {
+        CGRect frame = CGRectMake(CGRectGetMaxX(_searchBar.frame) - 3, CGRectGetMinY(self.searchBar.frame), 60, 44);
+        if ([RCDSemanticContext isRTL]) {
+            frame = CGRectMake(3, 0, 60, 44);
+        }
         _cancelButton = [[UIButton alloc]
-            initWithFrame:CGRectMake(CGRectGetMaxX(_searchBar.frame) - 3, CGRectGetMinY(self.searchBar.frame), 60, 44)];
+            initWithFrame:frame];
         [_cancelButton setTitle:RCDLocalizedString(@"cancel") forState:UIControlStateNormal];
         [_cancelButton setTitleColor:HEXCOLOR(0x0099ff) forState:UIControlStateNormal];
         _cancelButton.titleLabel.font = [UIFont systemFontOfSize:18.];

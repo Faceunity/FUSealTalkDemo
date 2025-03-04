@@ -26,17 +26,18 @@
 #import "RCDRegistrationAgreementController.h"
 #import "RCDIMService.h"
 #import "RCDTranslationManager.h"
-
 #if RCDTranslationEnable
 #import <RongTranslation/RongTranslation.h>
 #endif
 
 #import "RCDEnvironmentTableViewController.h"
 #import "RCDEnvironmentContext.h"
-
+#import "RCDProxySettingControllerViewController.h"
+#import "RCDHTTPUtility.h"
 #import "RCDFraudPreventionManager.h"
 #import "RCDAlertBuilder.h"
-
+#import <RongRTCLib/RongRTCLib.h>
+#import "UIView+MBProgressHUD.h"
 #define UserTextFieldTag 1000
 
 @interface RCDLoginViewController () <UITextFieldDelegate, RCDCountryListControllerDelegate, UITextViewDelegate>
@@ -52,22 +53,19 @@
 
 @property (nonatomic, strong) UILabel *errorMsgLb;
 
+@property (nonatomic, strong) RCUnderlineTextField *pictureVerCodeTextField;
+@property (nonatomic, strong) UIButton *pictureVerCodeButton;
+
 @property (nonatomic, strong) RCUnderlineTextField *verificationCodeField;
 @property (nonatomic, strong) UIButton *sendCodeButton;
 @property (nonatomic, strong) UILabel *vCodeTimerLb;
 @property (nonatomic, strong) UIButton *loginButton;
+@property (nonatomic, strong) UIButton *proxyButton;
 
 @property (nonatomic, strong) NSTimer *countDownTimer;
 @property (nonatomic, assign) int seconds;
-
-@property (nonatomic, strong) NSString *loginUserName;
-@property (nonatomic, strong) NSString *loginUserId;
-@property (nonatomic, strong) NSString *loginToken;
-@property (nonatomic, strong) NSString *loginPassword;
-
+@property (nonatomic, strong) NSString *codeId;
 @end
-
-
 
 @implementation RCDLoginViewController {
     MBProgressHUD *hud;
@@ -81,7 +79,6 @@
     [self initSubviews];
 
     [self setLayout];
-    [self layoutForOverseaIfNeed];
     [self addNotifications];
 }
 
@@ -91,6 +88,7 @@
     [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleLightContent];
     NSString *nameKey = [RCDEnvironmentContext currentEnvironmentNameKey];
     self.environmentTextField.textField.text = RCDLocalizedString(nameKey);
+    [self refreshPictureVerificationCode];
 }
 
 - (void)viewWillDisappear:(BOOL)animated{
@@ -105,7 +103,7 @@
 
 #pragma mark - action
 - (void)didTapLoginButtonClicked:(UIButton *)sender{
-    RCNetworkStatus status = [[RCIMClient sharedRCIMClient] getCurrentNetworkStatus];
+    RCNetworkStatus status = [[RCCoreClient sharedCoreClient] getCurrentNetworkStatus];
     if (RC_NotReachable == status) {
         self.errorMsgLb.text = RCDLocalizedString(@"network_can_not_use_please_check");
         return;
@@ -124,44 +122,65 @@
     [hud show:YES];
     [DEFAULTS removeObjectForKey:RCDUserCookiesKey];
     __weak typeof(self) weakSelf = self;
-//    [RCDLoginManager loginWithPhone:phone verificationCode:verifyCode region:self.currentRegion.phoneCode success:^(NSString * _Nonnull token, NSString * _Nonnull userId, NSString * _Nonnull nickName) {
-//        [weakSelf loginRongCloud:phone userName:nickName userId:userId token:token];
-//    } error:^(RCDLoginErrorCode errorCode) {
-//        dispatch_async(dispatch_get_main_queue(), ^{
-//            [hud hide:YES];
-//            if (errorCode == RCDLoginErrorCodeVerificationCodeError) {
-//                weakSelf.errorMsgLb.text = RCDLocalizedString(@"verification_code_error");
-//            }else if(errorCode == RCDLoginErrorCodeVerificationCodeExpired){
-//                weakSelf.errorMsgLb.text = RCDLocalizedString(@"captcha_overdue");
-//            }else{
-//                weakSelf.errorMsgLb.text = [NSString stringWithFormat:@"%@ : %ld",RCDLocalizedString(@"Login_fail"),(long)errorCode];
-//            }
-//        });
-//    }];
-    
-    [RCDLoginManager loginWithPhone:phone password:verifyCode region:self.currentRegion.phoneCode success:^(NSString * _Nonnull token, NSString * _Nonnull userId) {
-        
-        [weakSelf loginRongCloud:phone userId:userId token:token password:verifyCode];
-        
+    [RCDLoginManager loginWithPhone:phone verificationCode:verifyCode region:self.currentRegion.phoneCode success:^(NSString * _Nonnull token, NSString * _Nonnull userId, NSString * _Nonnull nickName) {
+        [weakSelf loginRongCloud:phone userName:nickName userId:userId token:token];
     } error:^(RCDLoginErrorCode errorCode) {
-        
         dispatch_async(dispatch_get_main_queue(), ^{
             [hud hide:YES];
-            NSLog(@"------errorCode = %ld",errorCode);
+            if (errorCode == RCDLoginErrorCodeVerificationCodeError) {
+                weakSelf.errorMsgLb.text = RCDLocalizedString(@"verification_code_error");
+            }else if(errorCode == RCDLoginErrorCodeVerificationCodeExpired){
+                weakSelf.errorMsgLb.text = RCDLocalizedString(@"captcha_overdue");
+            }else{
+                weakSelf.errorMsgLb.text = [NSString stringWithFormat:@"%@ : %ld",RCDLocalizedString(@"Login_fail"),(long)errorCode];
+            }
         });
     }];
-    
+}
+
+- (void)didTapProxyButtonClicked:(UIButton *)sender{
+    RCDProxySettingControllerViewController *vc = [[RCDProxySettingControllerViewController alloc] init];
+    vc.saveCallback = ^{
+
+        // 用户设置代理或者取消代理，此处都会回调，重新设置 proxy
+        RCIMProxy *improxy = [RCDProxySettingControllerViewController currentAPPSettingIMProxy];
+        // improxy 为nil，取消代理
+        BOOL success = [[RCCoreClient sharedCoreClient] setProxy:improxy];
+        if (success) {
+            RCRTCConfig *config = [[RCRTCConfig alloc] init];
+            RCRTCProxy *rtcproxy = [RCDProxySettingControllerViewController currentAPPSettingRTCProxy];
+            config.proxy = rtcproxy;
+            [[RCRTCEngine sharedInstance] initWithConfig:config];
+            
+            // setProxy 的地方，也要及时更新全局配置 SDWebImage， 允许使用代理模式加载图片
+            [RCDHTTPUtility configProxySDWebImage];
+        }
+    };
+    [self.navigationController pushViewController:vc animated:YES];
 }
 
 /*发送验证码*/
 - (void)sendCodeEvent {
     self.errorMsgLb.text = @"";
     NSString *phoneNumber = self.phoneTextField.textField.text;
-    if (phoneNumber.length > 0) {
-        [self getVerifyCode:self.currentRegion.phoneCode phoneNumber:phoneNumber];
-    } else {
+    if (phoneNumber.length == 0) {
         self.errorMsgLb.text = RCDLocalizedString(@"phone_number_type_error");
+        return;
     }
+    
+    NSUserDefaults *userDefault = [NSUserDefaults standardUserDefaults];
+    NSNumber *value = [userDefault valueForKey:@"RCDDebugUltraGroupEnable"];
+    if(![value boolValue]) {
+        NSString *picCode = [self.pictureVerCodeTextField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+        
+        if (picCode.length == 0) {
+            self.errorMsgLb.text = RCDLocalizedString(@"picture_verification_code_null");
+            return;
+        }
+    }
+    
+    [self getVerifyCode:self.currentRegion.phoneCode phoneNumber:phoneNumber];
+    
 }
 
 - (void)didTapCountryTextField {
@@ -188,6 +207,38 @@
     transition.subtype = kCATransitionFromLeft; //可更改为其他方式
     [self.navigationController.view.layer addAnimation:transition forKey:kCATransition];
     [self.navigationController pushViewController:temp animated:NO];
+}
+
+- (void)refreshPictureVerificationCode{
+    RCNetworkStatus status = [[RCCoreClient sharedCoreClient] getCurrentNetworkStatus];
+    if (RC_NotReachable == status) {
+        [self.view showHUDMessage:RCDLocalizedString(@"network_can_not_use_please_check")];
+        [self.pictureVerCodeButton setImage:nil forState:(UIControlStateNormal)];
+        self.codeId = @"";
+        return;
+    } else {
+        self.errorMsgLb.text = @"";
+    }
+    [RCDLoginManager getPictureVerificationCode:^(NSString * _Nonnull base64String, NSString * _Nonnull codeId) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.pictureVerCodeButton setImage:[self getImageVerification:base64String] forState:(UIControlStateNormal)];
+            self.codeId = codeId;
+        });
+    } error:^(RCDLoginErrorCode code) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.pictureVerCodeButton setImage:nil forState:(UIControlStateNormal)];
+            self.codeId = @"";
+        });
+    }];
+}
+
+- (UIImage *)getImageVerification:(NSString *)base64String{
+    if (base64String) {
+        NSData *imageData = [[NSData alloc] initWithBase64EncodedString:base64String
+                                                            options:NSDataBase64DecodingIgnoreUnknownCharacters];
+        return [UIImage imageWithData:imageData];
+    }
+    return nil;
 }
 
 #pragma mark - RCDCountryListControllerDelegate
@@ -220,10 +271,9 @@
         //《注册条款》点击事件
         RCDRegistrationAgreementController *vc = [[RCDRegistrationAgreementController alloc] init];
         // 创建URL
-        NSURL * url = [NSURL URLWithString:@"https://cdn.ronghub.com/agreement_zh.html"];
+        NSURL * url = [NSURL URLWithString:@"https://www.rongcloud.cn/chuangqiyi/terms_of_service"];
         vc.url = url;
         vc.webViewTitle = RCDLocalizedString(@"Registration_Terms");
-        vc.needInjectJSFontSize = YES;
         [self.navigationController pushViewController:vc animated:YES];
         return NO;
     }
@@ -231,7 +281,7 @@
         //《隐私政策》点击事件
         RCDRegistrationAgreementController *vc = [[RCDRegistrationAgreementController alloc] init];
         // 创建URL
-        NSURL * url = [NSURL URLWithString:@"https://www.rongcloud.cn/rc-im-privacy"];
+        NSURL * url = [NSURL URLWithString:@"https://www.rongcloud.cn/chuangqiyi/privacy_policy"];
         vc.url = url;
         vc.webViewTitle = RCDLocalizedString(@"Privacy_Policy");
         [self.navigationController pushViewController:vc animated:YES];
@@ -270,88 +320,36 @@
         [[RCTranslationClient sharedInstance] updateAuthToken:token];
         }
                                                  failure:^(NSInteger code) {
-            
+           
         }];
 #endif
 }
-
-- (void)loginRongCloud:(NSString *)userName
-                userId:(NSString *)userId
-                 token:(NSString *)token
-              password:(NSString *)password {
-    self.loginUserName = userName;
-    self.loginUserId = userId;
-    self.loginToken = token;
-    self.loginPassword = password;
-
-    [[RCDIMService sharedService] connectWithToken:token
-        dbOpened:^(RCDBErrorCode code) {
-            NSLog(@"RCDBOpened %@", code ? @"failed" : @"success");
-        }
-        success:^(NSString *userId) {
-            NSLog([NSString stringWithFormat:@"token is %@  userId is %@", token, userId], nil);
-            self.loginUserId = userId;
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [self loginSuccess:self.loginUserName
-                            userId:self.loginUserId
-                             token:self.loginToken
-                          password:self.loginPassword];
-            });
-
-        }
-        error:^(RCConnectErrorCode status) {
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [hud hide:YES];
-            NSLog(@"RCConnectErrorCode is %ld", (long)status);
-        });
-        
-    }];
-}
-
-- (void)loginSuccess:(NSString *)userName
-              userId:(NSString *)userId
-               token:(NSString *)token
-            password:(NSString *)password {
-    [DEFAULTS setObject:userName forKey:RCDUserNameKey];
-    [DEFAULTS setObject:password forKey:RCDUserPasswordKey];
-    [DEFAULTS setObject:token forKey:RCDIMTokenKey];
-    [DEFAULTS setObject:userId forKey:RCDUserIdKey];
-    [DEFAULTS synchronize];
-
-    [RCDUserInfoManager
-        getUserInfoFromServer:userId
-                     complete:^(RCDUserInfo *userInfo) {
-                         [RCIM sharedRCIM].currentUserInfo = userInfo;
-                         [RCDBuglyManager
-                             setUserIdentifier:[NSString stringWithFormat:@"%@ - %@", userInfo.userId, userInfo.name]];
-                         [DEFAULTS setObject:userInfo.portraitUri forKey:RCDUserPortraitUriKey];
-                         [DEFAULTS setObject:userInfo.name forKey:RCDUserNickNameKey];
-                         [DEFAULTS setObject:userInfo.stAccount forKey:RCDSealTalkNumberKey];
-                         [DEFAULTS setObject:userInfo.gender forKey:RCDUserGenderKey];
-                         [DEFAULTS synchronize];
-                     }];
-
-    [RCDDataSource syncAllData];
-    dispatch_async(dispatch_get_main_queue(), ^{
-        RCDMainTabBarViewController *mainTabBarVC = [[RCDMainTabBarViewController alloc] init];
-        RCDNavigationViewController *rootNavi =
-        [[RCDNavigationViewController alloc] initWithRootViewController:mainTabBarVC];
-        [UIApplication sharedApplication].delegate.window.rootViewController = rootNavi;
-    });
-}
-
 
 - (void)loginRongCloud:(NSString *)phone
               userName:(NSString *)userName
                 userId:(NSString *)userId
                  token:(NSString *)token{
+    [self saveLoginData:phone
+                 userId:userId
+               userName:userName
+                  token:token
+             completion:^{
+        dispatch_async(dispatch_get_main_queue(), ^{
+            AppDelegate *appDelegate = (AppDelegate *)[[UIApplication sharedApplication] delegate];
+            if ([appDelegate respondsToSelector:@selector(configureIMAndEnterHomeIfNeed)]) {
+                [appDelegate performSelector:@selector(configureIMAndEnterHomeIfNeed)];
+            }
+        });
+    }];
+
+ 
+    return;
     __weak typeof(self) weakSelf = self;
     [[RCDIMService sharedService] connectWithToken:token dbOpened:^(RCDBErrorCode code) {
         NSLog(@"RCDBOpened %@", code ? @"failed" : @"success");
     } success:^(NSString *userId) {
         NSLog([NSString stringWithFormat:@"token is %@  userId is %@", token, userId], nil);
-        [weakSelf saveLoginData:phone userId:userId userName:userName token:token];
+        [weakSelf saveLoginData:phone userId:userId userName:userName token:token completion:nil];
         [weakSelf requestTranslationTokenBy:userId];
         
         [weakSelf requestFraudPreventionRejectWithPhone:phone withRegion:self.currentRegion.phoneCode complate:^(BOOL reject) {
@@ -407,13 +405,15 @@
 - (void)saveLoginData:(NSString *)phone
                userId:(NSString *)userId
              userName:(NSString *)userName
-                token:(NSString *)token {
+                token:(NSString *)token
+           completion:(void(^)(void)) completion {
     //保存默认用户
     [DEFAULTS setObject:phone forKey:RCDPhoneKey];
     [DEFAULTS setObject:token forKey:RCDIMTokenKey];
     [DEFAULTS setObject:userId forKey:RCDUserIdKey];
+    [RCDNotificationServiceDefaults setValue:token forKey:RCDIMTokenKey];
     [DEFAULTS synchronize];
-
+    
     [RCDUserInfoManager
         getUserInfoFromServer:userId
                      complete:^(RCDUserInfo *userInfo) {
@@ -425,13 +425,16 @@
                          [DEFAULTS setObject:userInfo.stAccount forKey:RCDSealTalkNumberKey];
                          [DEFAULTS setObject:userInfo.gender forKey:RCDUserGenderKey];
                          [DEFAULTS synchronize];
+        if (completion) {
+            completion();
+        }
                      }];
     //同步群组
     [RCDDataSource syncAllData];
 }
 
 - (void)getVerifyCode:(NSString *)phoneCode phoneNumber:(NSString *)phoneNumber {
-    RCNetworkStatus status = [[RCIMClient sharedRCIMClient] getCurrentNetworkStatus];
+    RCNetworkStatus status = [[RCCoreClient sharedCoreClient] getCurrentNetworkStatus];
     if (RC_NotReachable == status) {
         self.errorMsgLb.text = RCDLocalizedString(@"network_can_not_use_please_check");
         return;
@@ -440,9 +443,8 @@
     hud.color = [UIColor colorWithHexString:@"343637" alpha:0.8];
     [hud show:YES];
     __weak typeof(self) ws = self;
-    [RCDLoginManager getVerificationCode:self.currentRegion.phoneCode
-        phoneNumber:phoneNumber
-        success:^(BOOL success) {
+    [RCDLoginManager getVerificationCode:self.currentRegion.phoneCode phoneNumber:phoneNumber
+     pictureCode:[self.pictureVerCodeTextField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] pictureCodeId:self.codeId success:^(BOOL success) {
             rcd_dispatch_main_async_safe(^{
                 [hud hide:YES];
                 if (success) {
@@ -459,9 +461,11 @@
                     ws.errorMsgLb.text = RCDLocalizedString(@"phone_number_type_error");
                 } else if (errorCode == RCDLoginErrorCodeVerificationCodeFrequencyTransfinite){
                     ws.errorMsgLb.text = RCDLocalizedString(@"verification_code_send_over_limit");
-                } else if(errorCode){
+                } else if (errorCode == RCDLoginErrorCodeVerificationCodeError) {
+                    self.errorMsgLb.text = RCDLocalizedString(@"picture_code_expired");
+                } else if(errorMsg){
                     ws.errorMsgLb.text = errorMsg;
-                }else{
+                } else{
                     ws.errorMsgLb.text = RCDLocalizedString(@"failed");
                 }
             });
@@ -534,91 +538,109 @@
     [self.view addSubview:[self getSwitchLanguage]];
     [self.view addSubview:[self getFooterLabel]];
 
+    [self.inputBackground addSubview:self.environmentTextField];
     [self.inputBackground addSubview:self.countryTextField];
     [self.inputBackground addSubview:self.phoneTextField];
+    [self.inputBackground addSubview:self.pictureVerCodeTextField];
+    [self.inputBackground addSubview:self.pictureVerCodeButton];
     [self.inputBackground addSubview:self.verificationCodeField];
     [self.inputBackground addSubview:self.sendCodeButton];
     [self.inputBackground addSubview:self.vCodeTimerLb];
     [self.inputBackground addSubview:self.loginButton];
-}
-//布局海外UI
-- (void)layoutForOverseaIfNeed {
-    if ([RCDEnvironmentContext isOversea]) {
-        [self.inputBackground addSubview:self.environmentTextField];
-        [self.inputBackground mas_remakeConstraints:^(MASConstraintMaker *make) {
-            make.left.equalTo(self.view).offset(41);
-            make.right.equalTo(self.view).offset(-41);
-            make.top.equalTo(self.rongLogo.mas_bottom).offset(50);
-            make.centerX.equalTo(self.view);
-            make.height.offset(310);
-        }];
-        [self.environmentTextField mas_remakeConstraints:^(MASConstraintMaker *make) {
-            make.left.right.top.equalTo(self.inputBackground);
-            make.height.offset(60);
-        }];
-        
-        [self.countryTextField mas_remakeConstraints:^(MASConstraintMaker *make) {
-            make.left.right.equalTo(self.inputBackground);
-            make.top.equalTo(self.environmentTextField.mas_bottom);
-            make.height.offset(60);
-        }];
-    }
+    [self.view addSubview:self.proxyButton];
 }
 
 - (void)setLayout {
+    CGFloat logoSize = 100;
+    CGFloat logoTop = 70;
+    CGFloat inputBackgroundTop = 20;
+    CGFloat loginButtonTop = 20;
+    if (SCREEN_HEIGHT < 665) {
+        logoSize = 70;
+        logoTop = 20;
+        inputBackgroundTop = 10;
+        loginButtonTop = 10;
+    }
     [self.rongLogo mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.width.height.offset(100);
-        make.top.equalTo(self.view).offset(70);
+        make.width.height.offset(logoSize);
+        make.top.equalTo(self.view).offset(logoTop);
         make.centerX.equalTo(self.view);
     }];
     
     [self.errorMsgLb mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(self.view).offset(41);
-        make.right.equalTo(self.view).offset(-41);
-        make.top.equalTo(self.rongLogo.mas_bottom).offset(20);
+        make.leading.equalTo(self.view).offset(41);
+        make.trailing.equalTo(self.view).offset(-41);
+        make.top.equalTo(self.rongLogo.mas_bottom).offset(10);
         make.centerX.equalTo(self.view);
         make.height.offset(15);
     }];
     
     [self.inputBackground mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(self.view).offset(41);
-        make.right.equalTo(self.view).offset(-41);
-        make.top.equalTo(self.rongLogo.mas_bottom).offset(50);
+        make.leading.equalTo(self.view).offset(41);
+        make.trailing.equalTo(self.view).offset(-41);
+        make.top.equalTo(self.rongLogo.mas_bottom).offset(20);
         make.centerX.equalTo(self.view);
-        make.height.offset(250);
+        make.height.offset(370);
+    }];
+    
+    [self.environmentTextField mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.leading.trailing.top.equalTo(self.inputBackground);
+        make.height.offset(60);
     }];
     
     [self.countryTextField mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.right.top.equalTo(self.inputBackground);
+        make.leading.trailing.equalTo(self.inputBackground);
+        make.top.equalTo(self.environmentTextField.mas_bottom);
         make.height.offset(60);
     }];
     
     [self.phoneTextField mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.right.equalTo(self.countryTextField);
+        make.leading.trailing.equalTo(self.countryTextField);
         make.top.equalTo(self.countryTextField.mas_bottom);
         make.height.offset(60);
     }];
     
-    [self.verificationCodeField mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.right.equalTo(self.countryTextField);
+    [self.pictureVerCodeTextField mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.leading.trailing.equalTo(self.countryTextField);
         make.top.equalTo(self.phoneTextField.mas_bottom);
         make.height.offset(60);
     }];
     
+    [self.pictureVerCodeButton mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.trailing.equalTo(self.pictureVerCodeTextField).offset(-10);;
+        make.bottom.equalTo(self.pictureVerCodeTextField.mas_bottom).offset(-20);
+        make.height.offset(41);
+        make.width.offset(103);
+    }];
+    
+    [self.verificationCodeField mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.leading.trailing.equalTo(self.countryTextField);
+        make.top.equalTo(self.pictureVerCodeTextField.mas_bottom);
+        make.height.offset(60);
+    }];
+    
     [self.loginButton mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.right.bottom.equalTo(self.inputBackground);
+        make.leading.trailing.equalTo(self.inputBackground);
+        make.top.equalTo(self.verificationCodeField.mas_bottom).offset(loginButtonTop);
         make.height.offset(50);
     }];
     
+    [self.proxyButton mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.centerX.equalTo(self.inputBackground);
+        make.width.offset(100);
+        make.height.offset(20);
+        make.top.equalTo(self.inputBackground.mas_bottom).offset(10);
+    }];
+
     [self.sendCodeButton mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.right.equalTo(self.verificationCodeField).offset(-10);
+        make.trailing.equalTo(self.verificationCodeField).offset(-10);
         make.bottom.equalTo(self.verificationCodeField.mas_bottom).offset(-20);
         make.width.offset(80);
         make.height.offset(25);
     }];
     
     [self.vCodeTimerLb mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.right.top.bottom.equalTo(self.sendCodeButton);
+        make.leading.trailing.top.bottom.equalTo(self.sendCodeButton);
     }];
 }
 
@@ -628,15 +650,26 @@
     if (!_environmentTextField) {
         _environmentTextField = [[RCDIndicateTextField alloc] init];
         _environmentTextField.indicateInfoLabel.text = RCDLocalizedString(@"DataCenter");
-        _environmentTextField.textField.text = self.currentRegion.countryName;
         _environmentTextField.textField.userInteractionEnabled = NO;
         [_environmentTextField indicateIconShow:YES];
         UITapGestureRecognizer *tap =
             [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(didTapEnvironmentTextField)];
         [_environmentTextField addGestureRecognizer:tap];
+        UILongPressGestureRecognizer *longGes =
+        [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(didLongPressEnvironmentTextField:)];
+        [_environmentTextField addGestureRecognizer:longGes];
         _environmentTextField.userInteractionEnabled = YES;
     }
     return _environmentTextField;
+}
+
+- (void)didLongPressEnvironmentTextField:(UIGestureRecognizer *)gestrue{
+    if (gestrue.state != UIGestureRecognizerStateEnded) {
+        return;
+    }
+    BOOL showTest = [DEFAULTS boolForKey:RCDSwitchTestEnvKey];
+    [DEFAULTS setBool:!showTest forKey:RCDSwitchTestEnvKey];
+    [DEFAULTS synchronize];
 }
 
 - (RCDIndicateTextField *)countryTextField {
@@ -719,6 +752,34 @@
     return _errorMsgLb;
 }
 
+- (RCUnderlineTextField *)pictureVerCodeTextField{
+    if (!_pictureVerCodeTextField) {
+        _pictureVerCodeTextField = [[RCUnderlineTextField alloc] initWithFrame:CGRectZero];
+        _pictureVerCodeTextField.backgroundColor = [UIColor clearColor];
+        UIColor *color = [UIColor whiteColor];
+        _pictureVerCodeTextField.attributedPlaceholder =
+            [[NSAttributedString alloc] initWithString:RCDLocalizedString(@"picture_verification_code")
+                                            attributes:@{NSForegroundColorAttributeName : color}];
+        _pictureVerCodeTextField.textColor = [UIColor whiteColor];
+        _pictureVerCodeTextField.delegate = self;
+    }
+    return _pictureVerCodeTextField;
+}
+
+- (UIButton *)pictureVerCodeButton{
+    if (!_pictureVerCodeButton) {
+        _pictureVerCodeButton = [[UIButton alloc] initWithFrame:CGRectZero];
+        [_pictureVerCodeButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        _pictureVerCodeButton.titleLabel.font = [UIFont systemFontOfSize:13];
+        [_pictureVerCodeButton addTarget:self action:@selector(refreshPictureVerificationCode) forControlEvents:UIControlEventTouchUpInside];
+        [_pictureVerCodeButton setTitle:RCDLocalizedString(@"refresh") forState:UIControlStateNormal];
+        _pictureVerCodeButton.backgroundColor = HEXCOLOR(0x0099ff);
+        [_pictureVerCodeButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        _pictureVerCodeButton.layer.cornerRadius = 4;
+    }
+    return _pictureVerCodeButton;
+}
+
 - (RCUnderlineTextField *)verificationCodeField {
     if (!_verificationCodeField) {
         RCUnderlineTextField *verificationCodeField = [[RCUnderlineTextField alloc] initWithFrame:CGRectZero];
@@ -778,10 +839,24 @@
     return _loginButton;
 }
 
+- (UIButton *)proxyButton {
+    if (!_proxyButton) {
+        UIButton *proxyButton = [UIButton buttonWithType:UIButtonTypeCustom];
+        [proxyButton addTarget:self action:@selector(didTapProxyButtonClicked:) forControlEvents:UIControlEventTouchUpInside];
+        [proxyButton setTitle:RCDLocalizedString(@"socks_proxy_setting") forState:UIControlStateNormal];
+        proxyButton.backgroundColor = [UIColor clearColor];
+        [proxyButton setTitleColor:HEXCOLOR(0x0099ff) forState:UIControlStateNormal];
+        proxyButton.titleLabel.font = [UIFont systemFontOfSize:15];
+        proxyButton.hidden = YES;
+        _proxyButton = proxyButton;
+    }
+    return _proxyButton;
+}
+
 - (UITextView *)getFooterLabel {
     NSString *registrationTerms = [NSString stringWithFormat:RCDLocalizedString(@"Registration_Terms_Format"), RCDLocalizedString(@"Registration_Terms")];
     NSString *privacyPolicy = [NSString stringWithFormat:RCDLocalizedString(@"Privacy_Policy_Format"), RCDLocalizedString(@"Privacy_Policy")];
-    NSString *content = [NSString stringWithFormat:RCDLocalizedString(@"Registration_Bottom_Text"), registrationTerms,  privacyPolicy, [RCIMClient getVersion]];
+    NSString *content = [NSString stringWithFormat:RCDLocalizedString(@"Registration_Bottom_Text"), registrationTerms,  privacyPolicy, [RCCoreClient getVersion]];
     UITextView *contentTextView = [[UITextView alloc] initWithFrame:CGRectMake(0, self.view.frame.size.height-[RCKitUtility getWindowSafeAreaInsets].bottom-100, self.view.frame.size.width, 100)];
     contentTextView.backgroundColor = self.view.backgroundColor;
     contentTextView.attributedText = [self getContentLabelAttributedText:content];

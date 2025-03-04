@@ -13,10 +13,11 @@
 #import "DefaultPortraitView.h"
 #import "RCDQRCodeManager.h"
 #import "RCDUserInfoManager.h"
-#import <AssetsLibrary/AssetsLibrary.h>
 #import "UIView+MBProgressHUD.h"
 #import "RCDForwardManager.h"
 #import "NormalAlertView.h"
+#import "RCDUtilities.h"
+
 @interface RCDMyQRCodeView ()
 
 @property (nonatomic, strong) UIView *qrBgView;
@@ -39,7 +40,7 @@
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        self.targetId = [RCIMClient sharedRCIMClient].currentUserInfo.userId;
+        self.targetId = [RCCoreClient sharedCoreClient].currentUserInfo.userId;
         [self setupSubviews];
         [self setupData];
     }
@@ -66,21 +67,7 @@
 }
 
 - (void)didClickSaveAction {
-    ALAuthorizationStatus status = [ALAssetsLibrary authorizationStatus];
-    if (status == ALAuthorizationStatusRestricted || status == ALAuthorizationStatusDenied) {
-        UIViewController *rootVC = [UIApplication sharedApplication].delegate.window.rootViewController;
-        UIAlertController *alertController = [UIAlertController
-            alertControllerWithTitle:RCLocalizedString(@"AccessRightTitle")
-                             message:RCLocalizedString(@"photoAccessRight")
-                      preferredStyle:UIAlertControllerStyleAlert];
-        [alertController
-            addAction:[UIAlertAction actionWithTitle:RCLocalizedString(@"OK")
-                                               style:UIAlertActionStyleDefault
-                                             handler:nil]];
-        [rootVC presentViewController:alertController animated:YES completion:nil];
-    } else {
-        [self saveImageToPhotos:[self captureCurrentView:self.qrBgView]];
-    }
+    [self saveImageToPhotos:[self captureCurrentView:self.qrBgView]];
 }
 
 - (void)didShareSealTalkAction {
@@ -129,7 +116,7 @@
     NSString *name = user.name;
     NSString *info = RCDLocalizedString(@"MyScanQRCodeInfo");
     NSString *qrInfo = [NSString stringWithFormat:@"%@?key=sealtalk://user/info?u=%@", RCDQRCodeContentInfoUrl,
-                                                  [RCIMClient sharedRCIMClient].currentUserInfo.userId];
+                                                  [RCCoreClient sharedCoreClient].currentUserInfo.userId];
     self.qrCodeImageView.image = [RCDQRCodeManager getQRCodeImage:qrInfo];
     if (![portraitUri isEqualToString:@""]) {
         [self.portraitImageView sd_setImageWithURL:[NSURL URLWithString:portraitUri]
@@ -256,11 +243,19 @@
 }
 
 - (void)saveImageToPhotos:(UIImage *)image {
-    UIImageWriteToSavedPhotosAlbum(image, self, @selector(image:didFinishSavingWithError:contextInfo:), nil);
+    [RCDUtilities savePhotosAlbumWithImage:image authorizationStatusBlock:^{
+        UIViewController *rootVC = [UIApplication sharedApplication].delegate.window.rootViewController;
+        [RCAlertView showAlertController:RCLocalizedString(@"AccessRightTitle")
+                                 message:RCLocalizedString(@"photoAccessRight")
+                             cancelTitle:RCLocalizedString(@"OK")
+                        inViewController:rootVC];
+    } resultBlock:^(BOOL success) {
+        [self showHUDWithSuccess:success];
+    }];
 }
 
-- (void)image:(UIImage *)image didFinishSavingWithError:(NSError *)error contextInfo:(void *)contextInfo {
-    if (error == nil) {
+- (void)showHUDWithSuccess:(BOOL)success {
+    if (success) {
         [self showHUDMessage:RCLocalizedString(@"SavePhotoSuccess")];
     } else {
         [self showHUDMessage:RCLocalizedString(@"SavePhotoFailed")];

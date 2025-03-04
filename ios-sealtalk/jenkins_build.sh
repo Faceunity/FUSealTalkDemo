@@ -10,6 +10,7 @@ TEMP_TIME=$(date +%s)
 CONFIGURATION="Release"
 BIN_DIR="bin"
 BUILD_DIR="build"
+ENABLE_COVERAGE="No"
 export Need_Extract_Arch="true"
 
 CUR_PATH=$(pwd)
@@ -39,9 +40,6 @@ RELEASE_FLAG=$PPARAM
 elif [ $PFLAG == "-time" ]
 then
 CUR_TIME=$PPARAM
-elif [ $PFLAG == "-profile" ]
-then
-PROFILE_FLAG=$PPARAM
 elif [ $PFLAG == "-appkey" ]
 then
 DEMO_APPKEY=$PPARAM
@@ -63,6 +61,9 @@ CUSTOMER_SERVICE_ID=$PPARAM
 elif [ $PFLAG == "-fraudmode" ]
 then
 ENABLE_FRAUD_PREVENTION=$PPARAM
+elif [ $PFLAG == "-coverage" ]
+then
+ENABLE_COVERAGE=$PPARAM
 fi
 done
 
@@ -78,23 +79,6 @@ TEMP_TIME=$(date +%s)
 
 echo "build ${APP_NAME}"
 
-if [ "${APP_NAME}" = "RC IM" ];then
-  sed -i '' -e 's?cn.rongcloud.im?cn.rongcloud.im.sg?g' ./RCloudMessage.xcodeproj/project.pbxproj
-  sed -i '' -e 's?cn.rongcloud.im.sg.shareextension?cn.rongcloud.im.sg.ShareExtension?g' ./RCloudMessage.xcodeproj/project.pbxproj
-  sed -i '' -e 's?cn.rongcloud.im.notificationservice?cn.rongcloud.im.sg.notificationservice?g' ./RCloudMessage.xcodeproj/project.pbxproj
-  sed -i '' -e 's?group.cn.rongcloud.im.share?group.cn.rongcloud.im.sg.share?g' ./RCloudMessage/Supporting\ Files/SealTalk.entitlements
-  sed -i '' -e 's?group.cn.rongcloud.im.share?group.cn.rongcloud.im.sg.share?g' ./SealTalkShareExtension/SealTalkShareExtension.entitlements
-  sed -i '' -e 's?group.cn.rongcloud.im.share?group.cn.rongcloud.im.sg.share?g' ./RCloudMessage/Supporting\ Files/SealTalkRelease.entitlements
-
-  sed -i '' -e 's?<string>融云 IM</string>?<string>'"${APP_NAME}"'</string>?g' ./RCloudMessage/Supporting\ Files/info.plist
-  sed -i '' -e 's?融云 IM?'"${APP_NAME}"'?g' ./SealTalkShareExtension/info.plist
-  sed -i '' -e 's?融云 IM?'"${APP_NAME}"'?g' ./SealTalkNotificationService/info.plist
-  sed -i '' -e 's?融云 IM?'\ "${APP_NAME}"'?g' ./RCloudMessage/Supporting\ Files/zh-Hans.lproj/InfoPlist.strings
- 
-  sed -i '' -e 's?"融云 IM?'\""${APP_NAME}"'?g' ./RCloudMessage/Supporting\ Files/zh-Hans.lproj/SealTalk.strings
-  sed -i '' -e 's?融云 IM?'\ "${APP_NAME}"'?g' ./RCloudMessage/Supporting\ Files/zh-Hans.lproj/SealTalk.strings
-fi
-
 #appkey
 if [ -n "${DEMO_APPKEY}" ]; then
     sed -i '' -e '/RONGCLOUD_IM_APPKEY/s/@"n19jmcy59f1q9"/@"'$DEMO_APPKEY'"/g' ./RCloudMessage/Supporting\ Files/RCDCommonDefine.h
@@ -103,11 +87,9 @@ fi
 #demo 服务器
 if [ -n "${DEMO_SERVER_URL}" ]; then
     if [[ $DEMO_SERVER_URL =~ ^http ]]; then
-        sed -i '' -e 's?http://api-sealtalk.rongcloud.cn?'$DEMO_SERVER_URL'?g' ./RCloudMessage/Supporting\ Files/RCDCommonDefine.h
-        sed -i '' -e 's?http://api-sealtalk.rongcloud.cn?'$DEMO_SERVER_URL'?g' ./SealTalkShareExtension/RCDShareChatListController.m
+        sed -i '' -e 's?https://sealtalk.rongcloud.cn/server-api?'$DEMO_SERVER_URL'?g' ./RCloudMessage/Supporting\ Files/RCDCommonDefine.h
     else
-        sed -i '' -e 's?http://api-sealtalk.rongcloud.cn?http://'$DEMO_SERVER_URL'?g' ./RCloudMessage/Supporting\ Files/RCDCommonDefine.h
-        sed -i '' -e 's?http://api-sealtalk.rongcloud.cn?http://'$DEMO_SERVER_URL'?g' ./SealTalkShareExtension/RCDShareChatListController.m
+        sed -i '' -e 's?https://sealtalk.rongcloud.cn/server-api?http://'$DEMO_SERVER_URL'?g' ./RCloudMessage/Supporting\ Files/RCDCommonDefine.h
     fi
 fi
 
@@ -154,7 +136,8 @@ echo $VER_FLAG
 
 Bundle_Short_Version=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" ./RCloudMessage/Supporting\ Files/Info.plist)
 sed -i ""  -e '/CFBundleShortVersionString/{n;s/'"${Bundle_Short_Version}"'/'"$VER_FLAG"\ "$RELEASE_FLAG"'/; }' ./RCloudMessage/Supporting\ Files/Info.plist
-sed -i "" -e '/CFBundleVersion/{n;s/[0-9]*[0-9]/'"$CUR_TIME"'/; }' ./RCloudMessage/Supporting\ Files/Info.plist
+Bundle_Short_Version=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" ./RCloudMessage/Supporting\ Files/Info.plist)
+sed -i ""  -e '/CFBundleVersion/{n;s/'${Bundle_Short_Version}'/'"${CUR_TIME}"'/; }' ./RCloudMessage/Supporting\ Files/Info.plist
 
 Bundle_Demo_Version=$(/usr/libexec/PlistBuddy -c "Print SealTalk\ Version" ./RCloudMessage/Supporting\ Files/Info.plist)
 sed -i "" -e '/SealTalk Version/{n;s/'"${Bundle_Demo_Version}"'/'"$DEMO_VER_FLAG"'/; }' ./RCloudMessage/Supporting\ Files/Info.plist
@@ -169,11 +152,13 @@ sed -i "" -e '/CFBundleVersion/{n;s/[0-9]*[0-9]/'"$CUR_TIME"'/; }' ./融云\ Dem
 
 Bundle_Short_Version=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" ./SealTalkShareExtension/Info.plist)
 sed -i ""  -e '/CFBundleShortVersionString/{n;s/'"${Bundle_Short_Version}"'/'"$VER_FLAG"\ "$RELEASE_FLAG"'/; }' ./SealTalkShareExtension/Info.plist
-sed -i "" -e '/CFBundleVersion/{n;s/[0-9]*[0-9]/'"$CUR_TIME"'/; }' ./SealTalkShareExtension/Info.plist
+Bundle_Short_Version=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" ./SealTalkShareExtension/Info.plist)
+sed -i ""  -e '/CFBundleVersion/{n;s/'${Bundle_Short_Version}'/'"${CUR_TIME}"'/; }' ./SealTalkShareExtension/Info.plist
 
 Bundle_Short_Version=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" .//SealTalkNotificationService/info.plist)
 sed -i ""  -e '/CFBundleShortVersionString/{n;s/'"${Bundle_Short_Version}"'/'"$VER_FLAG"\ "$RELEASE_FLAG"'/; }' .//SealTalkNotificationService/info.plist
-sed -i "" -e '/CFBundleVersion/{n;s/[0-9]*[0-9]/'"$CUR_TIME"'/; }' .//SealTalkNotificationService/info.plist
+Bundle_Short_Version=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" ./SealTalkNotificationService/Info.plist)
+sed -i ""  -e '/CFBundleVersion/{n;s/'${Bundle_Short_Version}'/'"${CUR_TIME}"'/; }' ./SealTalkNotificationService/Info.plist
 
 echo "sealtalk modify parameters times: $(($(date +%s) - $TEMP_TIME))"
 TEMP_TIME=$(date +%s)
@@ -192,13 +177,20 @@ xcodebuild clean -alltargets
 echo "sealtalk clean env times: $(($(date +%s) - $TEMP_TIME))"
 TEMP_TIME=$(date +%s)
 
+sh coverage.sh -coverage ${ENABLE_COVERAGE}
+
 echo "***开始build iphoneos文件***"
+[ -d "framework" ] && rm -rf framework
+  if [ ${ENABLE_COVERAGE} == "Yes" ]; then
+  xcodebuild -scheme "${targetName}" archive -archivePath "./${BUILD_DIR}/${targetName}.xcarchive" -configuration ${CONFIGURATION} APP_PROFILE="${BUILD_APP_PROFILE}" SHARE_PROFILE="${BUILD_SHARE_PROFILE}" GCC_GENERATE_TEST_COVERAGE_FILES=YES GCC_INSTRUMENT_PROGRAM_FLOW_ARCS=YES
+  else
   xcodebuild -scheme "${targetName}" archive -archivePath "./${BUILD_DIR}/${targetName}.xcarchive" -configuration ${CONFIGURATION} APP_PROFILE="${BUILD_APP_PROFILE}" SHARE_PROFILE="${BUILD_SHARE_PROFILE}"
-  
+  fi
+
   echo "sealtalk archive times: $(($(date +%s) - $TEMP_TIME))"
   TEMP_TIME=$(date +%s)
   
-  xcodebuild -exportArchive -archivePath "./${BUILD_DIR}/${targetName}.xcarchive" -exportOptionsPlist "archive.plist" -exportPath "./${BIN_DIR}" -allowProvisioningUpdates
+  xcodebuild -exportArchive -archivePath "./${BUILD_DIR}/${targetName}.xcarchive" -exportOptionsPlist "adHocArchive.plist" -exportPath "./${BIN_DIR}" -allowProvisioningUpdates
   
   echo "sealtalk export times: $(($(date +%s) - $TEMP_TIME))"
   TEMP_TIME=$(date +%s)

@@ -9,8 +9,6 @@
 #ifndef RCDCommonString_h
 #define RCDCommonString_h
 
-NSString *const RCDUserNameKey = @"userName";
-NSString *const RCDUserPasswordKey = @"userPwd";
 #define RCDIMTokenKey @"userToken"
 #define RCDAppKeyKey @"appKey"
 #define RCDUserIdKey @"userId"
@@ -29,7 +27,9 @@ NSString *const RCDUserPasswordKey = @"userPwd";
 #define RCDDebugSendCombineMessageKey @"RCDDebugSendCombineMessage"
 #define RCDUserCookiesKey @"UserCookies"
 #define RCDDisplayOnlineStatusKey @"isDisplayOnlineStatus"
+#define RCDSwitchTestEnvKey @"RCDSwitchTestEnvKey"
 #define RCDCookieKey @"Cookie"
+#define RCDDemoServerKey @"RCDDemoServer"
 #define RCDGroupInfoUpdateKey @"UpdateGroupInfo"
 #define RCDGroupMemberUpdateKey @"UpdateGroupMember"
 #define RCDGroupNoticeUpdateKey @"UpdateGroupNotice"
@@ -52,5 +52,34 @@ NSString *const RCDUserPasswordKey = @"userPwd";
 #define RCDDebugUtralGroupSyncKey  @"RCDDebugUtralGroupSyncKey"
 #define RCDDebugInputKeyboardUIKey  @"RCDDebugInputKeyboardUIKey"
 #define RCDDebugUltraGroupEnable @"RCDDebugUltraGroupEnable"
+#define RCDDebugTextAsyncDrawEnable @"RCDDebugTextAsyncDrawEnable"
+#define RCDDebugCommonPhrasesEnable @"RCDDebugCommonPhrasesEnable"
+#define RCDDebugHidePortraitEnable @"RCDDebugHidePortraitEnable"
+#define RCDDeviceTokenKey @"RCDDeviceTokenKey"
+#define RCDWormholeKey @"wormhole"
+#define RCDAppLaunchingIdentifierKey @"RCDAppLaunchingIdentifierKey"
+#define RCDPushExtensionIdentifierKey @"RCDPushExtensionIdentifierKey"
+#define RCDDebugEnableCustomEmoji @"RCDDebugEnableCustomEmoji"
+#define RCDDebugDisableEmojiBtn @"RCDDebugDisableEmojiBtn"
+#define RCDDebugDisableCheckDupMessage @"RCDDebugDisableCheckDupMessage"
+#define RCDDebugDisableCheckChatroomDupMessage @"RCDDebugDisableCheckChatroomDupMessage"
+#define RCDDebugEnableRealTimeLocation @"RCDDebugEnableRealTimeLocation"
+#define RCDDebugInterceptWillSendCombineFuntion @"RCDDebugInterceptWillSendCombineFuntion"
+#define RCDDebugDisplayUserName @"RCDDebugDisplayUserName"
+#define RCDDebugBlockedCommonPhrasesButton @"RCDDebugBlockedCommonPhrasesButton"
+#define RCDDebugDisableDeleteRemoteMessage @"RCDDebugDisableDeleteRemoteMessage"
+#define RCDDebugENABLE_STATICCONF_TEST @"RCDDebugENABLE_STATICCONF_TEST"
+#define RCDDebugEnablePauseDownloadTest @"RCDDebugEnablePauseDownloadTest"
+#define RCDDebugDISABLE_CRASH_MONITOR @"RCDDebugDISABLE_CRASH_MONITOR"
+#define RCDDebugEnableNormalVoiceMessage @"RCDDebugEnableNormalVoiceMessage"
+#define RCDDebugCombineV2EnableKey @"RCDDebugCombineV2EnableKey"
+#define RCDDebugEnableMessageAttachUserInfoKey @"RCDDebugEnableMessageAttachUserInfoKey"
+#define RCDDebugEnableNoMoreMessageToFetchKey @"RCDDebugEnableNoMoreMessageToFetchKey"
+
+// audit
+#define RCDDebugMessageAuditTypeKey @"RCDDebugMessageAuditTypeKey"
+#define RCDDebugMessageAuditProjectKey @"RCDDebugMessageAuditProjectKey"
+#define RCDDebugMessageAuditStrategyKey @"RCDDebugMessageAuditStrategyKey"
+#define RCDDebugEnableSearchByMessageTypes @"RCDDebugEnableSearchByMessageTypes"
 
 #endif /* RCDCommonString_h */
